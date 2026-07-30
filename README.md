@@ -2,23 +2,24 @@
 
 A mobile-first **PWA** for coordinating event tasks (weddings, parties, community events, etc.).
 
-- Create an event and add tasks with title, instructions, deadline, and how many people are needed.
+- Create an event and add tasks with title, instructions, **location address**, **file attachments**, deadline, and how many people are needed.
 - Share a link or short code.
 - People join and **volunteer / claim** tasks themselves.
 - Everyone sees in real time what is still open, who is responsible, and what is done.
 
-Built with **React + Vite + TypeScript + Tailwind + Firebase (Auth + Firestore)**.
+Built with **React + Vite + TypeScript + Tailwind + Firebase (Auth + Firestore + Storage)**.
 
 ## Features
 
 - Create event → get shareable link + 6-character code
-- Tasks: title, description/instructions, deadline, capacity
+- Tasks: title, description/instructions, **location/address**, **attachments** (images, PDFs, docs), deadline, capacity
 - Claim / unclaim / mark done / reopen
 - Filters: All / Open / Claimed / Done / My tasks
 - Owner can add & delete tasks
 - Anonymous Firebase Auth + display name
 - Installable PWA (Add to Home Screen)
 - Real-time updates via Firestore
+- Files stored in Firebase Storage
 
 ## Quick Start
 
@@ -34,15 +35,16 @@ npm install
 
 1. Go to [Firebase Console](https://console.firebase.google.com/) and create a new project (or use existing).
 2. Enable **Authentication** → Sign-in method → **Anonymous**.
-3. Create a **Firestore** database (start in production mode or test mode).
-4. Go to Project settings → Your apps → Add web app → copy the config.
-5. Copy `.env.example` to `.env` and fill in the values:
+3. Create a **Firestore** database.
+4. Enable **Storage** (start in production mode or test mode).
+5. Go to Project settings → Your apps → Add web app → copy the config.
+6. Copy `.env.example` to `.env` and fill in the values:
 
 ```bash
 cp .env.example .env
 ```
 
-6. **Firestore Security Rules** (important!) — paste these in the Rules tab:
+7. **Firestore Security Rules** — paste these in the Rules tab:
 
 ```
 rules_version = '2';
@@ -62,7 +64,20 @@ service cloud.firestore {
 }
 ```
 
-> These rules let anyone with the link read the event, and any signed-in (anonymous) user create/update tasks. Tighten later if needed.
+8. **Storage Security Rules** — paste these in Storage → Rules:
+
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /events/{eventId}/tasks/{taskId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 10 * 1024 * 1024; // 10MB max
+    }
+  }
+}
+```
 
 ### 3. Run
 
@@ -81,30 +96,27 @@ npm run preview
 
 You can deploy the `dist/` folder to **Firebase Hosting**, Vercel, Netlify, etc.
 
-```bash
-# Example with Firebase Hosting
-npm install -g firebase-tools
-firebase login
-firebase init hosting   # set public directory to dist
-firebase deploy
-```
-
 ## How to use
 
 1. Open the app → **Create new event** → enter a name (e.g. “Sara & Ali Wedding”).
-2. You become the owner. Tap **+** to add tasks (title, instructions, deadline, people needed).
-3. Share the page link or the short code with family/friends.
-4. They open the link, enter their name once, then claim tasks they want to do.
-5. Everyone sees live updates of what is taken and what is still open.
+2. You become the owner. Tap **+** to add tasks.
+3. For each task you can set:
+   - Title & instructions
+   - **Location / address** (tappable link to Google Maps)
+   - **Attachments** (photos, PDFs, documents — max 5 files, 10MB each)
+   - Deadline and how many people are needed
+4. Share the page link or the short code with family/friends.
+5. They open the link, enter their name once, then claim tasks.
+6. Everyone sees live updates of what is taken and what is still open.
 
 ## Tech stack
 
 - Vite + React 18 + TypeScript
 - Tailwind CSS
 - React Router
-- Firebase Auth (Anonymous) + Firestore
+- Firebase Auth (Anonymous) + Firestore + Storage
 - vite-plugin-pwa (manifest + service worker)
-- date-fns, lucide-react, clsx
+- lucide-react, clsx
 
 ## Project structure
 
