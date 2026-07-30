@@ -2,24 +2,23 @@
 
 A mobile-first **PWA** for coordinating event tasks (weddings, parties, community events, etc.).
 
-- Create an event and add tasks with title, instructions, **location address**, **file attachments**, deadline, and how many people are needed.
-- Share a link or short code.
-- People join and **volunteer / claim** tasks themselves.
-- Everyone sees in real time what is still open, who is responsible, and what is done.
+- **Google is the only sign-in method** for everyone (owner and contributors).
+- Event owner creates the event and gets a **shareable link + short code**.
+- Contributors open the link, sign in with Google, and can claim tasks.
+- Tasks support title, instructions, **location**, **file attachments**, deadline, and capacity.
 
-Built with **React + Vite + TypeScript + Tailwind + Firebase (Auth + Firestore + Storage)**.
+Built with **React + Vite + TypeScript + Tailwind + Firebase (Google Auth + Firestore + Storage)**.
 
 ## Features
 
-- Create event → get shareable link + 6-character code
-- Tasks: title, description/instructions, **location/address**, **attachments** (images, PDFs, docs), deadline, capacity
+- Google-only authentication (no anonymous, no passwords)
+- Create event → shareable link (`/e/...`) + 6-character code
+- Tasks: title, description, location/address, attachments, deadline, capacity
 - Claim / unclaim / mark done / reopen
 - Filters: All / Open / Claimed / Done / My tasks
 - Owner can add & delete tasks
-- Anonymous Firebase Auth + display name
-- Installable PWA (Add to Home Screen)
+- Installable PWA
 - Real-time updates via Firestore
-- Files stored in Firebase Storage
 
 ## Quick Start
 
@@ -33,30 +32,30 @@ npm install
 
 ### 2. Firebase setup
 
-1. Go to [Firebase Console](https://console.firebase.google.com/) and create a new project (or use existing).
-2. Enable **Authentication** → Sign-in method → **Anonymous**.
+1. Create (or open) a project in [Firebase Console](https://console.firebase.google.com/).
+2. **Authentication** → Sign-in method → enable **Google**.  
+   (You can disable Anonymous if it was on before.)
 3. Create a **Firestore** database.
-4. Enable **Storage** (start in production mode or test mode).
-5. Go to Project settings → Your apps → Add web app → copy the config.
-6. Copy `.env.example` to `.env` and fill in the values:
+4. Enable **Storage**.
+5. Project settings → Your apps → Add web app → copy the config into `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-7. **Firestore Security Rules** — paste these in the Rules tab:
+6. **Firestore rules**:
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /events/{eventId} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
 
       match /tasks/{taskId} {
-        allow read: if true;
+        allow read: if request.auth != null;
         allow create, update, delete: if request.auth != null;
       }
     }
@@ -64,20 +63,22 @@ service cloud.firestore {
 }
 ```
 
-8. **Storage Security Rules** — paste these in Storage → Rules:
+7. **Storage rules**:
 
 ```
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /events/{eventId}/tasks/{taskId}/{fileName} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
-                   && request.resource.size < 10 * 1024 * 1024; // 10MB max
+                   && request.resource.size < 10 * 1024 * 1024;
     }
   }
 }
 ```
+
+8. Under Authentication → Settings → **Authorized domains**, add your domain (e.g. `localhost`, your Vercel/Firebase Hosting domain).
 
 ### 3. Run
 
@@ -85,61 +86,32 @@ service firebase.storage {
 npm run dev
 ```
 
-Open the URL shown (usually http://localhost:5173).
-
-### 4. Build for production / PWA
+### 4. Build & deploy
 
 ```bash
 npm run build
-npm run preview
 ```
 
-You can deploy the `dist/` folder to **Firebase Hosting**, Vercel, Netlify, etc.
+Deploy `dist/` to Firebase Hosting, Vercel, or Netlify.
 
-## How to use
+## How the share / join flow works
 
-1. Open the app → **Create new event** → enter a name (e.g. “Sara & Ali Wedding”).
-2. You become the owner. Tap **+** to add tasks.
-3. For each task you can set:
-   - Title & instructions
-   - **Location / address** (tappable link to Google Maps)
-   - **Attachments** (photos, PDFs, documents — max 5 files, 10MB each)
-   - Deadline and how many people are needed
-4. Share the page link or the short code with family/friends.
-5. They open the link, enter their name once, then claim tasks.
-6. Everyone sees live updates of what is taken and what is still open.
+1. **Owner** signs in with Google → **Create new event**.
+2. On the event board, use the **Share** button (or copy the URL / the short code).
+3. Send the link to contributors (WhatsApp, SMS, email, etc.).
+4. Contributor opens the link → if not signed in, they see “Sign in with Google to join”.
+5. After Google sign-in they land on the board and can claim tasks.
+
+Alternatively they can go to the home page and enter the short code under **Join with code**.
 
 ## Tech stack
 
 - Vite + React 18 + TypeScript
 - Tailwind CSS
 - React Router
-- Firebase Auth (Anonymous) + Firestore + Storage
-- vite-plugin-pwa (manifest + service worker)
+- Firebase Auth (Google only) + Firestore + Storage
+- vite-plugin-pwa
 - lucide-react, clsx
-
-## Project structure
-
-```
-src/
-  components/     # TaskCard, AddTaskForm, NamePrompt, EventBoard
-  hooks/          # useAuth, useEvent
-  lib/            # firebase.ts, utils.ts
-  pages/          # Home
-  types/
-  App.tsx
-  main.tsx
-  index.css
-```
-
-## Next ideas (easy to add)
-
-- Categories / tags for tasks
-- Comments on tasks
-- Email or push reminders for deadlines
-- Export CSV of responsibilities
-- Better owner transfer / multi-admin
-- Persian (Farsi) UI
 
 ---
 
