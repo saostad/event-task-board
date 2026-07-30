@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Plus, X, MapPin, Paperclip, File } from 'lucide-react'
 
 interface Props {
   onAdd: (data: {
@@ -7,6 +7,8 @@ interface Props {
     description?: string
     deadline?: string | null
     capacity?: number
+    location?: string | null
+    files?: File[]
   }) => Promise<void>
   onClose: () => void
 }
@@ -16,7 +18,10 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
   const [description, setDescription] = useState('')
   const [deadline, setDeadline] = useState('')
   const [capacity, setCapacity] = useState(1)
+  const [location, setLocation] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,12 +32,26 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
         title,
         description,
         deadline: deadline || null,
-        capacity: Math.max(1, capacity)
+        capacity: Math.max(1, capacity),
+        location: location.trim() || null,
+        files: files.length > 0 ? files : undefined
       })
       onClose()
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || [])
+    // Limit to 5 files, 10MB each for reasonable mobile use
+    const valid = selected.filter((f) => f.size <= 10 * 1024 * 1024).slice(0, 5)
+    setFiles((prev) => [...prev, ...valid].slice(0, 5))
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   return (
@@ -64,8 +83,21 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Any notes, location, or how-to..."
+              placeholder="Any notes or how-to..."
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5" /> Location / address
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. 123 Main St, Atlanta or 'Backyard gazebo'"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -90,6 +122,53 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
                 className="w-full px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
+          </div>
+
+          {/* Attachments */}
+          <div>
+            <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
+              <Paperclip className="w-3.5 h-3.5" /> Attachments
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              onChange={handleFileChange}
+              className="hidden"
+              id="task-files"
+            />
+            <label
+              htmlFor="task-files"
+              className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-brand-500 hover:text-brand-400 cursor-pointer transition text-sm"
+            >
+              <Paperclip className="w-4 h-4" />
+              Add files (max 5, 10MB each)
+            </label>
+
+            {files.length > 0 && (
+              <ul className="mt-2 space-y-1.5">
+                {files.map((file, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 text-sm bg-slate-800 rounded-lg px-3 py-2"
+                  >
+                    <File className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span className="truncate flex-1">{file.name}</span>
+                    <span className="text-xs text-slate-500">
+                      {(file.size / 1024).toFixed(0)} KB
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      className="p-1 text-slate-400 hover:text-red-400"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <button
