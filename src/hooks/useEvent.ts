@@ -13,8 +13,9 @@ import {
   getDocs,
   limit
 } from 'firebase/firestore'
-import { db } from '../lib/firebase'
-import type { EventDoc, Task, TaskStatus } from '../types'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { db, storage } from '../lib/firebase'
+import type { EventDoc, Task, TaskStatus, Attachment } from '../types'
 import { generateCode } from '../lib/utils'
 
 export function useEvent(eventId: string | undefined) {
@@ -80,17 +81,46 @@ export function useEvent(eventId: string | undefined) {
       description?: string
       deadline?: string | null
       capacity?: number
+      location?: string | null
+      files?: File[]
     }) => {
       if (!eventId) return
-      await addDoc(collection(db, 'events', eventId, 'tasks'), {
+
+      // 1. Create the task first (so we have an ID for Storage path)
+      const taskRef = await addDoc(collection(db, 'events', eventId, 'tasks'), {
         title: data.title.trim(),
         description: data.description?.trim() || '',
         deadline: data.deadline || null,
         capacity: data.capacity || 1,
+        location: data.location?.trim() || null,
         claimedBy: [],
         status: 'open' as TaskStatus,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        attachments: []
       })
+
+      // 2. Upload any files
+      if (data.files && data.files.length > 0) {
+        const attachments: Attachment[] = []
+
+        for (const file of data.files) {
+          const path = `events/${eventId}/tasks/${taskRef.id}/${Date.now()}_${file.name}`
+          const storageRef = ref(storage, path)
+          await uploadBytes(storageRef, file)
+          const url = await getDownloadURL(storageRef)
+
+          attachments.push({
+            name: file.name,
+            url,
+            type: file.type || 'application/octet-stream',
+            size: file.size,
+            uploadedAt: Date.now()
+          })
+        }
+
+        // 3. Save attachment metadata on the task
+        await updateDoc(taskRef, { attachments })
+      }
     },
     [eventId]
   )
