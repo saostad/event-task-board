@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { Check, Clock, UserPlus, UserMinus, Trash2, RotateCcw, AlertCircle } from 'lucide-react'
+import {
+  Check,
+  Clock,
+  UserPlus,
+  UserMinus,
+  Trash2,
+  RotateCcw,
+  AlertCircle,
+  MapPin,
+  Paperclip,
+  ExternalLink
+} from 'lucide-react'
 import type { Task } from '../types'
 import { formatDeadline, isOverdue, cn } from '../lib/utils'
 
@@ -12,6 +23,12 @@ interface Props {
   onDone: (id: string) => void
   onReopen: (id: string) => void
   onDelete: (id: string) => void
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export function TaskCard({
@@ -28,6 +45,11 @@ export function TaskCard({
   const isClaimedByMe = task.claimedBy.includes(currentName)
   const isFull = task.claimedBy.length >= task.capacity
   const overdue = isOverdue(task.deadline) && task.status !== 'done'
+  const hasAttachments = task.attachments && task.attachments.length > 0
+
+  const mapsUrl = task.location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(task.location)}`
+    : null
 
   return (
     <div
@@ -56,6 +78,21 @@ export function TaskCard({
             </p>
           )}
 
+          {/* Location */}
+          {task.location && (
+            <a
+              href={mapsUrl!}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300"
+            >
+              <MapPin className="w-3.5 h-3.5 shrink-0" />
+              <span className="underline underline-offset-2">{task.location}</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </a>
+          )}
+
+          {/* Meta badges */}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             {task.deadline && (
               <span
@@ -75,6 +112,13 @@ export function TaskCard({
               {task.claimedBy.length}/{task.capacity} claimed
             </span>
 
+            {hasAttachments && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-800 text-slate-300">
+                <Paperclip className="w-3 h-3" />
+                {task.attachments!.length}
+              </span>
+            )}
+
             {task.status === 'done' && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
                 <Check className="w-3 h-3" /> Done
@@ -82,6 +126,7 @@ export function TaskCard({
             )}
           </div>
 
+          {/* Claimed by */}
           {task.claimedBy.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {task.claimedBy.map((name) => (
@@ -99,9 +144,30 @@ export function TaskCard({
               ))}
             </div>
           )}
+
+          {/* Attachments list */}
+          {hasAttachments && (
+            <div className="mt-3 space-y-1.5">
+              {task.attachments!.map((att, i) => (
+                <a
+                  key={i}
+                  href={att.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm bg-slate-800/70 hover:bg-slate-800 rounded-lg px-3 py-2 transition"
+                >
+                  <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate flex-1 text-slate-200">{att.name}</span>
+                  <span className="text-xs text-slate-500">{formatFileSize(att.size)}</span>
+                  <ExternalLink className="w-3 h-3 text-slate-500" />
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-2">
         {task.status !== 'done' && (
           <>
