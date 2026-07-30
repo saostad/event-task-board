@@ -1,5 +1,15 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, signInAnonymously, onAuthStateChanged, updateProfile, User } from 'firebase/auth'
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile,
+  User
+} from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
@@ -12,7 +22,6 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 }
 
-// Validate config early
 const missing = Object.entries(firebaseConfig).filter(([, v]) => !v).map(([k]) => k)
 if (missing.length > 0) {
   console.warn('Missing Firebase env vars:', missing.join(', '))
@@ -23,22 +32,36 @@ export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
 
-export async function ensureAuth(): Promise<User> {
-  return new Promise((resolve, reject) => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      unsub()
-      if (user) {
-        resolve(user)
-      } else {
-        try {
-          const cred = await signInAnonymously(auth)
-          resolve(cred.user)
-        } catch (err) {
-          reject(err)
-        }
-      }
-    })
-  })
+const googleProvider = new GoogleAuthProvider()
+googleProvider.setCustomParameters({ prompt: 'select_account' })
+
+export async function signInWithGoogle(): Promise<User> {
+  try {
+    const result = await signInWithPopup(auth, googleProvider)
+    return result.user
+  } catch (err: any) {
+    // Popup blocked or mobile issues → fall back to redirect
+    if (
+      err?.code === 'auth/popup-blocked' ||
+      err?.code === 'auth/popup-closed-by-user' ||
+      err?.code === 'auth/cancelled-popup-request'
+    ) {
+      await signInWithRedirect(auth, googleProvider)
+      // Page will reload; this promise won't resolve here
+      throw err
+    }
+    throw err
+  }
+}
+
+export async function handleRedirectResult(): Promise<User | null> {
+  const result = await getRedirectResult(auth)
+  return result?.user ?? null
+}
+
+export async function signOut(): Promise<void> {
+  await firebaseSignOut(auth)
+  localStorage.removeItem('displayName')
 }
 
 export async function setDisplayName(name: string) {
@@ -49,5 +72,12 @@ export async function setDisplayName(name: string) {
 }
 
 export function getLocalDisplayName(): string {
-  return localStorage.getItem('displayName') || auth.currentUser?.displayName || ''
+  return (
+    localStorage.getItem('displayName') ||
+    auth.currentUser?.displayName ||
+    ''
+  )
 }
+
+export { onAuthStateChanged }
+export type { User }
