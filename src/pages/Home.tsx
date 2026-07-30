@@ -1,31 +1,27 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, LogIn, CalendarHeart } from 'lucide-react'
+import { Plus, LogIn, CalendarHeart, LogOut } from 'lucide-react'
 import { createEvent, findEventByCode } from '../hooks/useEvent'
 import { useAuth } from '../hooks/useAuth'
-import { NamePrompt } from '../components/NamePrompt'
+import { GoogleSignInButton } from '../components/GoogleSignInButton'
 
 export function Home() {
   const navigate = useNavigate()
-  const { user, displayName, loading, updateName } = useAuth()
+  const { user, displayName, loading, login, logout, authError } = useAuth()
   const [mode, setMode] = useState<'home' | 'create' | 'join'>('home')
   const [title, setTitle] = useState('')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [showName, setShowName] = useState(false)
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !user) return
-    if (!displayName) {
-      setShowName(true)
-      return
-    }
     setBusy(true)
     setError('')
     try {
-      const id = await createEvent(title, displayName, user.uid)
+      const name = displayName || user.displayName || user.email || 'Owner'
+      const id = await createEvent(title, name, user.uid)
       navigate(`/e/${id}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create event')
@@ -61,18 +57,48 @@ export function Home() {
     )
   }
 
+  // Not signed in → Google only
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-md text-center">
+          <div className="inline-flex p-4 rounded-3xl bg-brand-500/10 mb-6">
+            <CalendarHeart className="w-12 h-12 text-brand-400" />
+          </div>
+          <h1 className="text-3xl font-bold tracking-tight">Event Task Board</h1>
+          <p className="mt-2 text-slate-400 mb-8">
+            Create events, share a link, and let people volunteer for tasks.
+          </p>
+
+          <GoogleSignInButton onClick={login} />
+
+          {authError && (
+            <p className="mt-4 text-sm text-red-400">{authError}</p>
+          )}
+
+          <p className="mt-6 text-xs text-slate-500">
+            Google is the only sign-in method. No passwords to remember.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Signed in
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <div className="inline-flex p-4 rounded-3xl bg-brand-500/10 mb-4">
               <CalendarHeart className="w-12 h-12 text-brand-400" />
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Event Task Board</h1>
             <p className="mt-2 text-slate-400">
-              List the things that need to happen.<br />
-              People volunteer. Everyone sees what’s left.
+              Signed in as{' '}
+              <span className="text-white font-medium">
+                {displayName || user.email}
+              </span>
             </p>
           </div>
 
@@ -91,6 +117,13 @@ export function Home() {
               >
                 <LogIn className="w-6 h-6" />
                 Join with code
+              </button>
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 py-3 text-sm text-slate-400 hover:text-slate-200 transition"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
               </button>
             </div>
           )}
@@ -125,6 +158,9 @@ export function Home() {
                   {busy ? 'Creating...' : 'Create'}
                 </button>
               </div>
+              <p className="text-xs text-slate-500 text-center">
+                After creating you’ll get a shareable link for contributors.
+              </p>
             </form>
           )}
 
@@ -167,17 +203,6 @@ export function Home() {
       <footer className="text-center text-xs text-slate-600 pb-6">
         Install as app · Works offline after first load
       </footer>
-
-      {(showName || (mode === 'create' && !displayName)) && (
-        <NamePrompt
-          currentName={displayName}
-          onSave={async (n) => {
-            await updateName(n)
-            setShowName(false)
-          }}
-          onClose={displayName ? () => setShowName(false) : undefined}
-        />
-      )}
     </div>
   )
 }
