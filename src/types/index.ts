@@ -1,5 +1,13 @@
 export type TaskStatus = 'open' | 'claimed' | 'done'
 
+export interface Attachment {
+  name: string
+  url: string
+  type: string
+  size: number
+  uploadedAt: number
+}
+
 export interface Task {
   id: string
   title: string
@@ -11,6 +19,8 @@ export interface Task {
   createdAt: number
   createdBy?: string
   notes?: string
+  location?: string | null // address text
+  attachments?: Attachment[]
 }
 
 export interface EventDoc {
