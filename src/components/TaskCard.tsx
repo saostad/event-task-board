@@ -1,282 +1,134 @@
-import { useState } from 'react'
 import {
   Check,
   Clock,
   UserPlus,
-  UserMinus,
-  Trash2,
-  RotateCcw,
   AlertCircle,
   MapPin,
   Paperclip,
-  ExternalLink,
   Phone,
-  Pencil,
-  X
+  Mic,
+  ChevronRight
 } from 'lucide-react'
 import type { Task } from '../types'
 import { formatDeadline, isOverdue, cn } from '../lib/utils'
-import { VoiceNotePlayer } from './VoiceNoteControl'
 
 interface Props {
   task: Task
   currentName: string
   isOwner: boolean
+  onOpen: (task: Task) => void
   onClaim: (id: string) => void
-  onUnclaim: (id: string, name?: string) => void
-  onDone: (id: string) => void
-  onReopen: (id: string) => void
-  onDelete: (id: string) => void
-  onEdit: (task: Task) => void
 }
 
-function formatFileSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function telHref(phone: string) {
-  const digits = phone.replace(/[^\d+]/g, '')
-  return `tel:${digits}`
-}
-
-export function TaskCard({
-  task,
-  currentName,
-  isOwner,
-  onClaim,
-  onUnclaim,
-  onDone,
-  onReopen,
-  onDelete,
-  onEdit
-}: Props) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
+export function TaskCard({ task, currentName, onOpen, onClaim }: Props) {
   const isClaimedByMe = task.claimedBy.includes(currentName)
   const isFull = task.claimedBy.length >= task.capacity
   const overdue = isOverdue(task.deadline) && task.status !== 'done'
   const hasAttachments = task.attachments && task.attachments.length > 0
 
-  const mapsUrl = task.location
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(task.location)}`
-    : null
-
   return (
     <div
       className={cn(
-        'rounded-2xl border p-4 transition-all',
+        'rounded-2xl border transition-all',
         task.status === 'done'
           ? 'bg-slate-900/50 border-slate-700/50 opacity-70'
           : 'bg-slate-900 border-slate-700',
         overdue && 'border-amber-500/50'
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <h3
-            className={cn(
-              'font-semibold text-base leading-snug',
-              task.status === 'done' && 'line-through text-slate-400'
-            )}
-          >
-            {task.title}
-          </h3>
-
-          {task.description && (
-            <p className="mt-1 text-sm text-slate-400 whitespace-pre-wrap">{task.description}</p>
-          )}
-
-          {task.voiceNote?.url && (
-            <VoiceNotePlayer url={task.voiceNote.url} durationMs={task.voiceNote.durationMs} />
-          )}
-
-          {task.location && (
-            <a
-              href={mapsUrl!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300"
+      <button
+        type="button"
+        onClick={() => onOpen(task)}
+        className="w-full text-left p-4 active:bg-slate-800/40 rounded-2xl"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h3
+              className={cn(
+                'font-semibold text-base leading-snug',
+                task.status === 'done' && 'line-through text-slate-400'
+              )}
             >
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="underline underline-offset-2">{task.location}</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </a>
-          )}
+              {task.title}
+            </h3>
 
-          {task.phone && (
-            <a
-              href={telHref(task.phone)}
-              className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300"
-            >
-              <Phone className="w-3.5 h-3.5 shrink-0" />
-              <span className="underline underline-offset-2">{task.phone}</span>
-            </a>
-          )}
-
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-            {task.deadline && (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 px-2 py-1 rounded-full',
-                  overdue
-                    ? 'bg-amber-500/20 text-amber-300'
-                    : 'bg-slate-800 text-slate-300'
-                )}
-              >
-                {overdue ? <AlertCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                {formatDeadline(task.deadline)}
-              </span>
+            {task.description?.trim() && (
+              <p className="mt-1 text-sm text-slate-400 line-clamp-2">{task.description}</p>
             )}
 
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-800 text-slate-300">
-              {task.claimedBy.length}/{task.capacity} claimed
-            </span>
+            <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-xs">
+              {task.status === 'done' && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
+                  <Check className="w-3 h-3" /> Done
+                </span>
+              )}
 
-            {hasAttachments && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-800 text-slate-300">
-                <Paperclip className="w-3 h-3" />
-                {task.attachments!.length}
-              </span>
-            )}
-
-            {task.status === 'done' && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
-                <Check className="w-3 h-3" /> Done
-              </span>
-            )}
-          </div>
-
-          {task.claimedBy.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {task.claimedBy.map((name) => (
+              {task.deadline && (
                 <span
-                  key={name}
                   className={cn(
-                    'text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1',
-                    name === currentName
-                      ? 'bg-brand-500/30 text-brand-200'
+                    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full',
+                    overdue
+                      ? 'bg-amber-500/20 text-amber-300'
                       : 'bg-slate-800 text-slate-300'
                   )}
                 >
-                  {name}
-                  {isOwner && task.status !== 'done' && (
-                    <button
-                      type="button"
-                      title={`Remove ${name}`}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onUnclaim(task.id, name)
-                      }}
-                      className="ml-0.5 p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-300"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                  {overdue ? <AlertCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                  {formatDeadline(task.deadline)}
                 </span>
-              ))}
+              )}
+
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                {task.claimedBy.length}/{task.capacity}
+              </span>
+
+              {task.location && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                  <MapPin className="w-3 h-3" />
+                </span>
+              )}
+              {task.phone && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                  <Phone className="w-3 h-3" />
+                </span>
+              )}
+              {task.voiceNote?.url && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                  <Mic className="w-3 h-3" />
+                </span>
+              )}
+              {hasAttachments && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                  <Paperclip className="w-3 h-3" />
+                  {task.attachments!.length}
+                </span>
+              )}
             </div>
-          )}
 
-          {hasAttachments && (
-            <div className="mt-3 space-y-1.5">
-              {task.attachments!.map((att, i) => (
-                <a
-                  key={i}
-                  href={att.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm bg-slate-800/70 hover:bg-slate-800 rounded-lg px-3 py-2 transition"
-                >
-                  <Paperclip className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate flex-1 text-slate-200">{att.name}</span>
-                  <span className="text-xs text-slate-500">{formatFileSize(att.size)}</span>
-                  <ExternalLink className="w-3 h-3 text-slate-500" />
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {task.status !== 'done' && (
-          <>
-            {!isClaimedByMe && !isFull && currentName && (
-              <button
-                onClick={() => onClaim(task.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-sm font-medium transition"
-              >
-                <UserPlus className="w-4 h-4" /> Claim
-              </button>
-            )}
-
-            {isClaimedByMe && (
-              <button
-                onClick={() => onUnclaim(task.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm transition"
-              >
-                <UserMinus className="w-4 h-4" /> Unclaim
-              </button>
-            )}
-
-            {(isClaimedByMe || isOwner) && (
-              <button
-                onClick={() => onDone(task.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/80 hover:bg-emerald-500 text-sm font-medium transition"
-              >
-                <Check className="w-4 h-4" /> Mark done
-              </button>
-            )}
-          </>
-        )}
-
-        {task.status === 'done' && (isOwner || isClaimedByMe) && (
-          <button
-            onClick={() => onReopen(task.id)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm transition"
-          >
-            <RotateCcw className="w-4 h-4" /> Reopen
-          </button>
-        )}
-
-        {isOwner && (
-          <>
-            <button
-              onClick={() => onEdit(task)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 transition"
-              title="Edit task"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit
-            </button>
-
-            {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 text-sm transition ml-auto"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            ) : (
-              <div className="flex gap-2 ml-auto">
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-700 text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => onDelete(task.id)}
-                  className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-sm"
-                >
-                  Delete
-                </button>
+            {task.claimedBy.length > 0 && (
+              <div className="mt-2 text-xs text-slate-400 truncate">
+                {task.claimedBy.join(', ')}
               </div>
             )}
-          </>
-        )}
-      </div>
+          </div>
+          <ChevronRight className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />
+        </div>
+      </button>
+
+      {/* Quick claim without opening */}
+      {task.status !== 'done' && !isClaimedByMe && !isFull && currentName && (
+        <div className="px-4 pb-3 -mt-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClaim(task.id)
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-sm font-medium transition"
+          >
+            <UserPlus className="w-4 h-4" /> Claim
+          </button>
+        </div>
+      )}
     </div>
   )
 }
