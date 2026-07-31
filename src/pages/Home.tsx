@@ -16,7 +16,26 @@ import { useMyEvents } from '../hooks/useMyEvents'
 import { useAuth } from '../hooks/useAuth'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { AppFooter } from '../components/AppFooter'
-import type { EventDoc } from '../types'
+import { EventFieldsForm } from '../components/EventFieldsForm'
+import type { EventDoc, EventWritableFields } from '../types'
+
+const emptyFields = (): EventWritableFields => ({
+  title: '',
+  description: '',
+  location: '',
+  phone: '',
+  eventDate: null
+})
+
+function fromEvent(ev: EventDoc): EventWritableFields {
+  return {
+    title: ev.title || '',
+    description: ev.description || '',
+    location: ev.location || '',
+    phone: ev.phone || '',
+    eventDate: ev.eventDate || null
+  }
+}
 
 export function Home() {
   const navigate = useNavigate()
@@ -25,19 +44,19 @@ export function Home() {
     events,
     loading: eventsLoading,
     error: eventsError,
-    renameEvent,
+    updateEvent,
     deleteEvent
   } = useMyEvents(user?.uid)
 
   const [mode, setMode] = useState<'home' | 'create' | 'join'>('home')
-  const [title, setTitle] = useState('')
+  const [form, setForm] = useState<EventWritableFields>(emptyFields())
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
 
   const [editing, setEditing] = useState<EventDoc | null>(null)
-  const [editTitle, setEditTitle] = useState('')
+  const [editForm, setEditForm] = useState<EventWritableFields>(emptyFields())
   const [deleting, setDeleting] = useState<EventDoc | null>(null)
   const [actionBusy, setActionBusy] = useState(false)
 
@@ -46,18 +65,19 @@ export function Home() {
     const q = query.trim().toLowerCase()
     return (
       ev.title.toLowerCase().includes(q) ||
-      ev.code.toLowerCase().includes(q)
+      ev.code.toLowerCase().includes(q) ||
+      (ev.location || '').toLowerCase().includes(q)
     )
   })
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim() || !user) return
+    if (!form.title.trim() || !user) return
     setBusy(true)
     setError('')
     try {
       const name = displayName || user.displayName || user.email || 'Owner'
-      const id = await createEvent(title, name, user.uid)
+      const id = await createEvent(form, name, user.uid)
       navigate(`/e/${id}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create event')
@@ -85,15 +105,16 @@ export function Home() {
     }
   }
 
-  const handleRename = async (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editing || !editTitle.trim()) return
+    if (!editing || !editForm.title.trim()) return
     setActionBusy(true)
+    setError('')
     try {
-      await renameEvent(editing.id, editTitle)
+      await updateEvent(editing.id, editForm)
       setEditing(null)
     } catch (err: any) {
-      setError(err.message || 'Failed to rename')
+      setError(err.message || 'Failed to save')
     } finally {
       setActionBusy(false)
     }
@@ -120,7 +141,6 @@ export function Home() {
     )
   }
 
-  // —— Logged out: keep simple welcome ——
   if (!user) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -135,9 +155,7 @@ export function Home() {
             </p>
             <GoogleSignInButton onClick={login} />
             {authError && <p className="mt-4 text-sm text-red-400">{authError}</p>}
-            <p className="mt-6 text-xs text-slate-500">
-              Google is the only sign-in method.
-            </p>
+            <p className="mt-6 text-xs text-slate-500">Google is the only sign-in method.</p>
           </div>
         </div>
         <AppFooter />
@@ -145,15 +163,13 @@ export function Home() {
     )
   }
 
-  // —— Logged in: app dashboard ——
   return (
     <div className="min-h-screen flex flex-col bg-slate-950">
-      {/* Top app bar */}
       <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center shrink-0">
-              <CalendarHeart className="w-4.5 h-4.5 text-brand-400" />
+              <CalendarHeart className="w-4 h-4 text-brand-400" />
             </div>
             <div className="min-w-0">
               <div className="font-semibold text-sm leading-tight truncate">Event Task Board</div>
@@ -165,7 +181,6 @@ export function Home() {
           <button
             onClick={logout}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition shrink-0"
-            title="Sign out"
           >
             <LogOut className="w-4 h-4" />
             <span className="hidden sm:inline">Sign out</span>
@@ -176,13 +191,12 @@ export function Home() {
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-5">
         {mode === 'home' && (
           <>
-            {/* Compact actions */}
             <div className="flex gap-2 mb-5">
               <button
                 onClick={() => {
                   setMode('create')
                   setError('')
-                  setTitle('')
+                  setForm(emptyFields())
                 }}
                 className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-sm font-medium transition"
               >
@@ -202,7 +216,6 @@ export function Home() {
               </button>
             </div>
 
-            {/* Search */}
             {events.length > 0 && (
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
@@ -215,7 +228,6 @@ export function Home() {
               </div>
             )}
 
-            {/* Section header */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-300">My events</h2>
               <span className="text-xs text-slate-500">
@@ -226,10 +238,7 @@ export function Home() {
             {eventsLoading && (
               <div className="space-y-2">
                 {[1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-20 rounded-xl bg-slate-900 border border-slate-800 animate-pulse"
-                  />
+                  <div key={i} className="h-20 rounded-xl bg-slate-900 border border-slate-800 animate-pulse" />
                 ))}
               </div>
             )}
@@ -277,10 +286,16 @@ export function Home() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">{ev.title}</div>
-                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
+                      <div className="text-xs text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         <span className="font-mono text-brand-400/90">{ev.code}</span>
                         <span className="text-slate-600">·</span>
                         <span>{new Date(ev.createdAt).toLocaleDateString()}</span>
+                        {ev.location && (
+                          <>
+                            <span className="text-slate-600">·</span>
+                            <span className="truncate max-w-[10rem]">{ev.location}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-slate-600 shrink-0" />
@@ -290,7 +305,7 @@ export function Home() {
                       type="button"
                       onClick={() => {
                         setEditing(ev)
-                        setEditTitle(ev.title)
+                        setEditForm(fromEvent(ev))
                         setError('')
                       }}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/80 transition"
@@ -318,7 +333,7 @@ export function Home() {
         )}
 
         {mode === 'create' && (
-          <div className="max-w-md">
+          <div className="max-w-md pb-8">
             <button
               type="button"
               onClick={() => setMode('home')}
@@ -328,24 +343,14 @@ export function Home() {
             </button>
             <h2 className="text-xl font-semibold mb-1">New event</h2>
             <p className="text-sm text-slate-400 mb-5">
-              You’ll get a shareable link and code after creating.
+              Fill in the details. You can edit them anytime later.
             </p>
             <form onSubmit={handleCreate} className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1.5">Event name</label>
-                <input
-                  autoFocus
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Marjan wedding"
-                  className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
+              <EventFieldsForm values={form} onChange={setForm} idPrefix="create" />
               {error && <p className="text-sm text-red-400">{error}</p>}
               <button
                 type="submit"
-                disabled={busy || !title.trim()}
+                disabled={busy || !form.title.trim()}
                 className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition"
               >
                 {busy ? 'Creating...' : 'Create event'}
@@ -395,30 +400,17 @@ export function Home() {
 
       <AppFooter />
 
-      {/* Edit modal */}
       {editing && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-md bg-slate-900 rounded-2xl p-5 border border-slate-700 shadow-xl">
+          <div className="w-full max-w-md bg-slate-900 rounded-2xl p-5 border border-slate-700 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Edit event</h2>
-              <button
-                onClick={() => setEditing(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-800"
-              >
+              <button onClick={() => setEditing(null)} className="p-1.5 rounded-lg hover:bg-slate-800">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleRename} className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1.5">Event name</label>
-                <input
-                  autoFocus
-                  required
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              </div>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <EventFieldsForm values={editForm} onChange={setEditForm} idPrefix="edit" />
               <p className="text-xs text-slate-500">
                 Code stays the same:{' '}
                 <span className="font-mono text-brand-400">{editing.code}</span>
@@ -426,7 +418,7 @@ export function Home() {
               {error && <p className="text-sm text-red-400">{error}</p>}
               <button
                 type="submit"
-                disabled={actionBusy || !editTitle.trim()}
+                disabled={actionBusy || !editForm.title.trim()}
                 className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition"
               >
                 {actionBusy ? 'Saving...' : 'Save changes'}
@@ -436,7 +428,6 @@ export function Home() {
         </div>
       )}
 
-      {/* Delete confirm */}
       {deleting && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md bg-slate-900 rounded-2xl p-5 border border-slate-700 shadow-xl">
