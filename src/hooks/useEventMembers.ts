@@ -9,10 +9,11 @@ import {
   updateDoc,
   orderBy,
   query,
-  arrayUnion
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { EventMember, Task, TaskStatus } from '../types'
+import type { EventMember, BlockedMember, Task, TaskStatus } from '../types'
 
 function statusFromClaims(claimedCount: number, capacity: number): TaskStatus {
   if (claimedCount === 0) return 'open'
@@ -34,6 +35,7 @@ export function useEventMembers(
   }
 ) {
   const [members, setMembers] = useState<EventMember[]>([])
+  const [blocked, setBlocked] = useState<BlockedMember[]>([])
   const [loading, setLoading] = useState(true)
   const [joinDenied, setJoinDenied] = useState<'blocked' | 'invalid_invite' | null>(null)
   const membersReady = useRef(false)
@@ -41,6 +43,7 @@ export function useEventMembers(
   useEffect(() => {
     if (!eventId) {
       setMembers([])
+      setBlocked([])
       setLoading(false)
       membersReady.current = false
       return
@@ -52,7 +55,7 @@ export function useEventMembers(
       orderBy('joinedAt', 'asc')
     )
 
-    const unsub = onSnapshot(
+    const unsubMembers = onSnapshot(
       q,
       (snap) => {
         const list: EventMember[] = []
@@ -68,7 +71,21 @@ export function useEventMembers(
       }
     )
 
-    return () => unsub()
+    const unsubBlocked = onSnapshot(
+      collection(db, 'events', eventId, 'blocked'),
+      (snap) => {
+        const list: BlockedMember[] = []
+        snap.forEach((d) => list.push({ uid: d.id, ...d.data() } as BlockedMember))
+        list.sort((a, b) => b.blockedAt - a.blockedAt)
+        setBlocked(list)
+      },
+      (err) => console.error('blocked error', err)
+    )
+
+    return () => {
+      unsubMembers()
+      unsubBlocked()
+    }
   }, [eventId])
 
   useEffect(() => {
@@ -76,9 +93,11 @@ export function useEventMembers(
     if (!membersReady.current && loading) return
 
     const uid = options.uid
-    const blocked = options.blockedUids || []
+    const blockedUids = options.blockedUids || []
+    const isBlocked =
+      blockedUids.includes(uid) || blocked.some((b) => b.uid === uid)
 
-    if (blocked.includes(uid)) {
+    if (isBlocked) {
       setJoinDenied('blocked')
       return
     }
@@ -88,7 +107,6 @@ export function useEventMembers(
 
     if (!alreadyMember && !isOwner) {
       const required = options.eventInviteToken
-      // Only enforce token once the event has one (and after members loaded)
       if (required) {
         if (!options.inviteFromUrl || options.inviteFromUrl !== required) {
           setJoinDenied('invalid_invite')
@@ -115,6 +133,7 @@ export function useEventMembers(
     eventId,
     loading,
     members,
+    blocked,
     options?.uid,
     options?.displayName,
     options?.email,
@@ -150,6 +169,14 @@ export function useEventMembers(
       await Promise.all(updates)
       await deleteDoc(doc(db, 'events', eventId, 'members', member.uid))
 
+      // Keep a profile record so owner can unblock later
+      await setDoc(doc(db, 'events', eventId, 'blocked', member.uid), {
+        displayName: member.displayName,
+        email: member.email || null,
+        photoURL: member.photoURL || null,
+        blockedAt: Date.now()
+      })
+
       await updateDoc(doc(db, 'events', eventId), {
         blockedUids: arrayUnion(member.uid)
       })
@@ -157,5 +184,17 @@ export function useEventMembers(
     [eventId]
   )
 
-  return { members, loading, removeMember, joinDenied }
+  const unblockMember = useCallback(
+    async (member: BlockedMember) => {
+      if (!eventId) return
+
+      await deleteDoc(doc(db, 'events', eventId, 'blocked', member.uid))
+      await updateDoc(doc(db, 'events', eventId), {
+        blockedUids: arrayRemove(member.uid)
+      })
+    },
+    [eventId]
+  )
+
+  return { members, blocked, loading, removeMember, unblockMember, joinDenied }
 }
