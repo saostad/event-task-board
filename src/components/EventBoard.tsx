@@ -95,14 +95,6 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
     }
   }
 
-  const handleCopyCode = async () => {
-    if (event?.code) {
-      await navigator.clipboard.writeText(event.code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -131,18 +123,13 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-xl font-bold truncate">{event.title}</h1>
-              <p className="text-sm text-slate-400">
-                by {event.ownerName} · Code:{' '}
-                <button onClick={handleCopyCode} className="font-mono text-brand-400">
-                  {event.code}
-                </button>
-              </p>
+              <p className="text-sm text-slate-400">by {event.ownerName}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleShare}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
-                title="Share"
+                title="Share link"
               >
                 {copied ? (
                   <Check className="w-5 h-5 text-emerald-400" />
