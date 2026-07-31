@@ -11,7 +11,7 @@ import {
   setDoc
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db, storage } from '../lib/firebase'
+import { db, storage, auth } from '../lib/firebase'
 import type {
   EventDoc,
   Task,
@@ -123,6 +123,8 @@ export function useEvent(eventId: string | undefined) {
     }) => {
       if (!eventId) return
 
+      const createdBy = auth.currentUser?.uid || null
+
       const taskRef = await addDoc(collection(db, 'events', eventId, 'tasks'), {
         title: data.title.trim(),
         description: data.description?.trim() || '',
@@ -133,6 +135,7 @@ export function useEvent(eventId: string | undefined) {
         claimedBy: [],
         status: 'open' as TaskStatus,
         createdAt: Date.now(),
+        createdBy,
         attachments: [],
         voiceNote: null
       })
