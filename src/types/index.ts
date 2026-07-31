@@ -42,7 +42,8 @@ export interface EventDoc {
   createdAt: number
   createdBy: string
   ownerName: string
-  code: string
+  /** @deprecated No longer used; kept optional for old events */
+  code?: string
 }
 
 export type EventWritableFields = {
