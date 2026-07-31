@@ -54,6 +54,16 @@ export type EventWritableFields = {
   eventDate?: string | null
 }
 
+/** Someone who opened the event via share link (or the owner). */
+export interface EventMember {
+  uid: string
+  displayName: string
+  email?: string | null
+  photoURL?: string | null
+  joinedAt: number
+  role: 'owner' | 'contributor'
+}
+
 export interface UserProfile {
   uid: string
   displayName: string
