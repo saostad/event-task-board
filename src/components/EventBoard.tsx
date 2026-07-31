@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Plus, Share2, Check, Settings, MapPin, Phone, Calendar } from 'lucide-react'
+import { Plus, Share2, Check, Settings, MapPin, Phone, Calendar, Users } from 'lucide-react'
 import { useEvent } from '../hooks/useEvent'
+import { useEventMembers } from '../hooks/useEventMembers'
 import { TaskCard } from './TaskCard'
 import { AddTaskForm } from './AddTaskForm'
 import { EditTaskForm } from './EditTaskForm'
 import { NamePrompt } from './NamePrompt'
+import { ContributorsPanel } from './ContributorsPanel'
 import { AppFooter } from './AppFooter'
 import { cn } from '../lib/utils'
 import type { Task } from '../types'
@@ -14,6 +16,8 @@ interface Props {
   displayName: string
   onUpdateName: (name: string) => void
   userUid: string
+  userEmail?: string | null
+  userPhotoURL?: string | null
 }
 
 type Filter = 'all' | 'open' | 'claimed' | 'done' | 'mine'
@@ -39,7 +43,14 @@ function formatEventDate(value: string | null | undefined) {
   }
 }
 
-export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Props) {
+export function EventBoard({
+  eventId,
+  displayName,
+  onUpdateName,
+  userUid,
+  userEmail,
+  userPhotoURL
+}: Props) {
   const {
     event,
     tasks,
@@ -54,13 +65,22 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
     deleteTask
   } = useEvent(eventId)
 
+  const isOwner = event?.createdBy === userUid
+
+  const { members, loading: membersLoading, removeMember } = useEventMembers(eventId, {
+    uid: userUid,
+    displayName,
+    email: userEmail,
+    photoURL: userPhotoURL,
+    isOwner
+  })
+
   const [showAdd, setShowAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showName, setShowName] = useState(false)
+  const [showContributors, setShowContributors] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [copied, setCopied] = useState(false)
-
-  const isOwner = event?.createdBy === userUid
 
   const filtered = tasks.filter((t) => {
     if (filter === 'open') return t.status === 'open'
@@ -72,6 +92,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
 
   const openCount = tasks.filter((t) => t.status === 'open').length
   const doneCount = tasks.filter((t) => t.status === 'done').length
+  const helperCount = members.filter((m) => m.role !== 'owner').length
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
   const eventDateLabel = formatEventDate(event?.eventDate)
@@ -126,6 +147,20 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
               <p className="text-sm text-slate-400">by {event.ownerName}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {isOwner && (
+                <button
+                  onClick={() => setShowContributors(true)}
+                  className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                  title="Contributors"
+                >
+                  <Users className="w-5 h-5" />
+                  {helperCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-brand-600 text-[10px] font-medium flex items-center justify-center">
+                      {helperCount}
+                    </span>
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleShare}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
@@ -262,6 +297,15 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
           task={editingTask}
           onSave={(data) => updateTask(editingTask.id, data)}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {showContributors && isOwner && (
+        <ContributorsPanel
+          members={members}
+          loading={membersLoading}
+          onRemove={removeMember}
+          onClose={() => setShowContributors(false)}
         />
       )}
 
