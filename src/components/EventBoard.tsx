@@ -1,5 +1,17 @@
-import { useState } from 'react'
-import { Plus, Share2, Check, Settings, MapPin, Phone, Calendar, Users } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  Plus,
+  Share2,
+  Check,
+  Settings,
+  MapPin,
+  Phone,
+  Calendar,
+  Users,
+  RefreshCw,
+  Link2
+} from 'lucide-react'
 import { useEvent } from '../hooks/useEvent'
 import { useEventMembers } from '../hooks/useEventMembers'
 import { TaskCard } from './TaskCard'
@@ -43,6 +55,12 @@ function formatEventDate(value: string | null | undefined) {
   }
 }
 
+function buildShareUrl(eventId: string, inviteToken?: string | null) {
+  const base = `${window.location.origin}/e/${eventId}`
+  if (inviteToken) return `${base}?invite=${inviteToken}`
+  return base
+}
+
 export function EventBoard({
   eventId,
   displayName,
@@ -51,6 +69,9 @@ export function EventBoard({
   userEmail,
   userPhotoURL
 }: Props) {
+  const [searchParams] = useSearchParams()
+  const inviteFromUrl = searchParams.get('invite')
+
   const {
     event,
     tasks,
@@ -62,25 +83,45 @@ export function EventBoard({
     unclaimTask,
     markDone,
     reopenTask,
-    deleteTask
+    deleteTask,
+    regenerateInviteToken
   } = useEvent(eventId)
 
   const isOwner = event?.createdBy === userUid
 
-  const { members, loading: membersLoading, removeMember } = useEventMembers(eventId, {
-    uid: userUid,
-    displayName,
-    email: userEmail,
-    photoURL: userPhotoURL,
-    isOwner
-  })
+  const { members, loading: membersLoading, removeMember, joinDenied } = useEventMembers(
+    eventId,
+    {
+      uid: userUid,
+      displayName,
+      email: userEmail,
+      photoURL: userPhotoURL,
+      isOwner,
+      inviteFromUrl,
+      eventInviteToken: event?.inviteToken,
+      blockedUids: event?.blockedUids
+    }
+  )
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showName, setShowName] = useState(false)
   const [showContributors, setShowContributors] = useState(false)
+  const [showInviteSettings, setShowInviteSettings] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [copied, setCopied] = useState(false)
+  const [regenBusy, setRegenBusy] = useState(false)
+  const [lastToken, setLastToken] = useState<string | null>(null)
+
+  // Ensure older events get a token the first time the owner opens invite settings
+  useEffect(() => {
+    if (event?.inviteToken) setLastToken(event.inviteToken)
+  }, [event?.inviteToken])
+
+  const shareUrl = useMemo(() => {
+    if (typeof window === 'undefined') return ''
+    return buildShareUrl(eventId, lastToken || event?.inviteToken)
+  }, [eventId, event?.inviteToken, lastToken])
 
   const filtered = tasks.filter((t) => {
     if (filter === 'open') return t.status === 'open'
@@ -94,25 +135,50 @@ export function EventBoard({
   const doneCount = tasks.filter((t) => t.status === 'done').length
   const helperCount = members.filter((m) => m.role !== 'owner').length
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
   const eventDateLabel = formatEventDate(event?.eventDate)
   const mapsUrl = event?.location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
     : null
 
   const handleShare = async () => {
+    // Create a token if this is an old event without one
+    let url = shareUrl
+    if (isOwner && !event?.inviteToken && !lastToken) {
+      try {
+        const token = await regenerateInviteToken()
+        setLastToken(token)
+        url = buildShareUrl(eventId, token)
+      } catch {}
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({
           title: event?.title || 'Event Tasks',
           text: `Help with tasks for ${event?.title}`,
-          url: shareUrl
+          url
         })
       } catch {}
     } else {
-      await navigator.clipboard.writeText(shareUrl)
+      await navigator.clipboard.writeText(url)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleRegenerate = async () => {
+    setRegenBusy(true)
+    try {
+      const token = await regenerateInviteToken()
+      setLastToken(token)
+      const url = buildShareUrl(eventId, token)
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setRegenBusy(false)
     }
   }
 
@@ -137,6 +203,28 @@ export function EventBoard({
     )
   }
 
+  // Blocked or invalid invite (not owner)
+  if (!isOwner && joinDenied) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-semibold mb-2">
+            {joinDenied === 'blocked' ? 'Access removed' : 'Invite expired'}
+          </h1>
+          <p className="text-slate-400 mb-6">
+            {joinDenied === 'blocked'
+              ? 'The event owner removed you from this event. You cannot rejoin with this account.'
+              : 'This share link is no longer valid. Ask the event owner for a new invite link.'}
+          </p>
+          <a href="/" className="text-brand-400 underline text-sm">
+            Go home
+          </a>
+        </div>
+        <AppFooter />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pb-28 flex flex-col">
       <header className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur border-b border-slate-800">
@@ -148,18 +236,27 @@ export function EventBoard({
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {isOwner && (
-                <button
-                  onClick={() => setShowContributors(true)}
-                  className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
-                  title="Contributors"
-                >
-                  <Users className="w-5 h-5" />
-                  {helperCount > 0 && (
-                    <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-brand-600 text-[10px] font-medium flex items-center justify-center">
-                      {helperCount}
-                    </span>
-                  )}
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowContributors(true)}
+                    className="relative p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                    title="Contributors"
+                  >
+                    <Users className="w-5 h-5" />
+                    {helperCount > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-0.5 rounded-full bg-brand-600 text-[10px] font-medium flex items-center justify-center">
+                        {helperCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowInviteSettings(true)}
+                    className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
+                    title="Invite link"
+                  >
+                    <Link2 className="w-5 h-5" />
+                  </button>
+                </>
               )}
               <button
                 onClick={handleShare}
@@ -307,6 +404,57 @@ export function EventBoard({
           onRemove={removeMember}
           onClose={() => setShowContributors(false)}
         />
+      )}
+
+      {showInviteSettings && isOwner && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-700 shadow-xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Link2 className="w-5 h-5 text-brand-400" /> Invite link
+              </h2>
+              <button
+                onClick={() => setShowInviteSettings(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-400 mb-3">
+              Share this link so helpers can join. Regenerating creates a new link and{' '}
+              <span className="text-slate-200">expires the old one</span>.
+            </p>
+
+            <div className="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2.5 text-xs font-mono break-all text-slate-300 mb-4">
+              {shareUrl || 'Generating…'}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleShare}
+                className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-sm font-medium transition flex items-center justify-center gap-2"
+              >
+                {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                {copied ? 'Copied!' : 'Copy / share link'}
+              </button>
+              <button
+                type="button"
+                onClick={handleRegenerate}
+                disabled={regenBusy}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sm font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <RefreshCw className={cn('w-4 h-4', regenBusy && 'animate-spin')} />
+                {regenBusy ? 'Regenerating…' : 'Regenerate link (expire old)'}
+              </button>
+            </div>
+
+            <p className="mt-3 text-xs text-slate-500">
+              People you already removed stay blocked even if they get a new link.
+            </p>
+          </div>
+        </div>
       )}
 
       {(showName || !displayName) && (
