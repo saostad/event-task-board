@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, X, MapPin, Paperclip, File } from 'lucide-react'
+import { Plus, X, MapPin, Paperclip, File, Phone } from 'lucide-react'
 
 interface Props {
   onAdd: (data: {
@@ -8,6 +8,7 @@ interface Props {
     deadline?: string | null
     capacity?: number
     location?: string | null
+    phone?: string | null
     files?: File[]
   }) => Promise<void>
   onClose: () => void
@@ -19,6 +20,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
   const [deadline, setDeadline] = useState('')
   const [capacity, setCapacity] = useState(1)
   const [location, setLocation] = useState('')
+  const [phone, setPhone] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -34,6 +36,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
         deadline: deadline || null,
         capacity: Math.max(1, capacity),
         location: location.trim() || null,
+        phone: phone.trim() || null,
         files: files.length > 0 ? files : undefined
       })
       onClose()
@@ -44,7 +47,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
-    // Limit to 5 files, 10MB each for reasonable mobile use
     const valid = selected.filter((f) => f.size <= 10 * 1024 * 1024).slice(0, 5)
     setFiles((prev) => [...prev, ...valid].slice(0, 5))
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -72,7 +74,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Set up ceremony chairs"
+              placeholder="e.g. Pick up cake from bakery"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
@@ -96,9 +98,25 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="e.g. 123 Main St, Atlanta or 'Backyard gazebo'"
+              placeholder="e.g. 123 Main St, Atlanta"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" /> Phone number
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="e.g. (678) 555-1234"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              People can tap this number to call (e.g. the store or contact for pickup).
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -124,7 +142,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           </div>
 
-          {/* Attachments */}
           <div>
             <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
               <Paperclip className="w-3.5 h-3.5" /> Attachments
