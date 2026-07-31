@@ -18,6 +18,17 @@ import { db, storage } from '../lib/firebase'
 import type { EventDoc, Task, TaskStatus, Attachment, EventWritableFields } from '../types'
 import { generateCode } from '../lib/utils'
 
+function statusFromClaims(
+  claimedCount: number,
+  capacity: number,
+  current?: TaskStatus
+): TaskStatus {
+  if (current === 'done') return 'done'
+  if (claimedCount === 0) return 'open'
+  if (claimedCount >= capacity) return 'claimed'
+  return 'open'
+}
+
 export function useEvent(eventId: string | undefined) {
   const [event, setEvent] = useState<EventDoc | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -124,6 +135,39 @@ export function useEvent(eventId: string | undefined) {
     [eventId]
   )
 
+  const updateTask = useCallback(
+    async (
+      taskId: string,
+      data: {
+        title: string
+        description?: string
+        deadline?: string | null
+        capacity?: number
+        location?: string | null
+        phone?: string | null
+      }
+    ) => {
+      if (!eventId) return
+      const task = tasks.find((t) => t.id === taskId)
+      if (!task) return
+
+      const capacity = Math.max(1, data.capacity || 1)
+      // If capacity shrinks below current claimants, keep claimants but status = claimed
+      const status = statusFromClaims(task.claimedBy.length, capacity, task.status)
+
+      await updateDoc(doc(db, 'events', eventId, 'tasks', taskId), {
+        title: data.title.trim(),
+        description: data.description?.trim() || '',
+        deadline: data.deadline || null,
+        capacity,
+        location: data.location?.trim() || null,
+        phone: data.phone?.trim() || null,
+        status
+      })
+    },
+    [eventId, tasks]
+  )
+
   const claimTask = useCallback(
     async (taskId: string, name: string) => {
       if (!eventId || !name.trim()) return
@@ -134,12 +178,9 @@ export function useEvent(eventId: string | undefined) {
       if (task.claimedBy.length >= task.capacity) return
 
       const newClaimed = [...task.claimedBy, name.trim()]
-      const newStatus: TaskStatus =
-        newClaimed.length >= task.capacity ? 'claimed' : 'open'
-
       await updateDoc(taskRef, {
         claimedBy: newClaimed,
-        status: newStatus
+        status: statusFromClaims(newClaimed.length, task.capacity)
       })
     },
     [eventId, tasks]
@@ -155,7 +196,7 @@ export function useEvent(eventId: string | undefined) {
       const newClaimed = task.claimedBy.filter((n) => n !== name)
       await updateDoc(taskRef, {
         claimedBy: newClaimed,
-        status: newClaimed.length === 0 ? 'open' : 'claimed'
+        status: statusFromClaims(newClaimed.length, task.capacity, task.status === 'done' ? undefined : task.status)
       })
     },
     [eventId, tasks]
@@ -177,7 +218,7 @@ export function useEvent(eventId: string | undefined) {
       const task = tasks.find((t) => t.id === taskId)
       if (!task) return
       await updateDoc(doc(db, 'events', eventId, 'tasks', taskId), {
-        status: task.claimedBy.length >= task.capacity ? 'claimed' : 'open'
+        status: statusFromClaims(task.claimedBy.length, task.capacity)
       })
     },
     [eventId, tasks]
@@ -213,6 +254,7 @@ export function useEvent(eventId: string | undefined) {
     loading,
     error,
     addTask,
+    updateTask,
     claimTask,
     unclaimTask,
     markDone,
