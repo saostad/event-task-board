@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { X, MapPin, Phone, Save, Paperclip, File } from 'lucide-react'
 import type { Task, Attachment, VoiceNote } from '../types'
-import { formatPhoneInput } from '../lib/utils'
+import { formatPhoneInput, compressImagesInFiles } from '../lib/utils'
 import { VoiceNoteControl } from './VoiceNoteControl'
 
 export type TaskEditData = {
@@ -45,6 +45,7 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
   const [voiceDurationMs, setVoiceDurationMs] = useState(task.voiceNote?.durationMs || 0)
   const [clearVoice, setClearVoice] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -78,11 +79,26 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
-    const valid = selected.filter((f) => f.size <= 10 * 1024 * 1024)
-    setNewFiles((prev) => [...prev, ...valid].slice(0, Math.max(0, 5 - attachments.length)))
+    const room = Math.max(0, 5 - attachments.length - newFiles.length)
+    const candidates = selected
+      .filter((f) => {
+        if (f.type.startsWith('image/')) return f.size <= 25 * 1024 * 1024
+        return f.size <= 10 * 1024 * 1024
+      })
+      .slice(0, room)
+
     if (fileInputRef.current) fileInputRef.current.value = ''
+    if (candidates.length === 0) return
+
+    setCompressing(true)
+    try {
+      const processed = await compressImagesInFiles(candidates, 0.3)
+      setNewFiles((prev) => [...prev, ...processed].slice(0, Math.max(0, 5 - attachments.length)))
+    } finally {
+      setCompressing(false)
+    }
   }
 
   return (
@@ -223,7 +239,9 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
                   >
                     <File className="w-4 h-4 text-brand-400 shrink-0" />
                     <span className="truncate flex-1">{file.name}</span>
-                    <span className="text-xs text-slate-500">new</span>
+                    <span className="text-xs text-slate-500">
+                      {(file.size / 1024).toFixed(0)} KB · new
+                    </span>
                     <button
                       type="button"
                       onClick={() => setNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
@@ -252,7 +270,9 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
                   className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-brand-500 hover:text-brand-400 cursor-pointer transition text-sm"
                 >
                   <Paperclip className="w-4 h-4" />
-                  Add files (max 5, 10MB each)
+                  {compressing
+                    ? 'Compressing images…'
+                    : 'Add files (photos compressed to 30%)'}
                 </label>
               </>
             )}
@@ -262,7 +282,7 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
 
           <button
             type="submit"
-            disabled={loading || !title.trim()}
+            disabled={loading || compressing || !title.trim()}
             className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             <Save className="w-4 h-4" />
