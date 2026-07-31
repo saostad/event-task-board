@@ -59,6 +59,8 @@ function EventPage() {
       displayName={displayName || user.displayName || user.email || 'User'}
       onUpdateName={updateName}
       userUid={user.uid}
+      userEmail={user.email}
+      userPhotoURL={user.photoURL}
     />
   )
 }
