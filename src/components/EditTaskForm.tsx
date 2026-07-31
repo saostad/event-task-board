@@ -1,7 +1,8 @@
 import { useState, useRef } from 'react'
 import { X, MapPin, Phone, Save, Paperclip, File } from 'lucide-react'
-import type { Task, Attachment } from '../types'
+import type { Task, Attachment, VoiceNote } from '../types'
 import { formatPhoneInput } from '../lib/utils'
+import { VoiceNoteControl } from './VoiceNoteControl'
 
 export type TaskEditData = {
   title: string
@@ -12,6 +13,10 @@ export type TaskEditData = {
   phone?: string | null
   attachments?: Attachment[]
   newFiles?: File[]
+  voiceNote?: VoiceNote | null
+  voiceBlob?: Blob | null
+  voiceDurationMs?: number
+  clearVoice?: boolean
 }
 
 interface Props {
@@ -35,6 +40,10 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
   const [phone, setPhone] = useState(formatPhoneInput(task.phone || ''))
   const [attachments, setAttachments] = useState<Attachment[]>(task.attachments || [])
   const [newFiles, setNewFiles] = useState<File[]>([])
+  const [voiceNote, setVoiceNote] = useState<VoiceNote | null>(task.voiceNote || null)
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null)
+  const [voiceDurationMs, setVoiceDurationMs] = useState(task.voiceNote?.durationMs || 0)
+  const [clearVoice, setClearVoice] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -55,7 +64,11 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
         location: location.trim() || null,
         phone: phone.trim() || null,
         attachments,
-        newFiles: newFiles.length > 0 ? newFiles : undefined
+        newFiles: newFiles.length > 0 ? newFiles : undefined,
+        voiceNote: clearVoice ? null : voiceNote,
+        voiceBlob,
+        voiceDurationMs,
+        clearVoice: clearVoice && !voiceBlob
       })
       onClose()
     } catch (err: any) {
@@ -105,6 +118,24 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
             />
           </div>
 
+          <VoiceNoteControl
+            existingUrl={!clearVoice && !voiceBlob ? voiceNote?.url : null}
+            existingDurationMs={voiceNote?.durationMs}
+            localBlob={voiceBlob}
+            onRecorded={(blob, durationMs) => {
+              setVoiceBlob(blob)
+              setVoiceDurationMs(durationMs)
+              setClearVoice(false)
+            }}
+            onCleared={() => {
+              setVoiceBlob(null)
+              setVoiceDurationMs(0)
+              setVoiceNote(null)
+              setClearVoice(true)
+            }}
+            disabled={loading}
+          />
+
           <div>
             <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5" /> Location / address
@@ -131,9 +162,6 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
               placeholder="e.g. (678) 555-1234"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
-            <p className="mt-1 text-xs text-slate-500">
-              People can tap this number to call.
-            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -159,7 +187,6 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
             </div>
           </div>
 
-          {/* Attachments */}
           <div>
             <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
               <Paperclip className="w-3.5 h-3.5" /> Attachments
@@ -179,7 +206,6 @@ export function EditTaskForm({ task, onSave, onClose }: Props) {
                       type="button"
                       onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
                       className="p-1 text-slate-400 hover:text-red-400"
-                      title="Remove"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
