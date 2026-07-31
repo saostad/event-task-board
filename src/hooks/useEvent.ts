@@ -8,10 +8,7 @@ import {
   deleteDoc,
   query,
   orderBy,
-  setDoc,
-  where,
-  getDocs,
-  limit
+  setDoc
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
@@ -23,7 +20,6 @@ import type {
   EventWritableFields,
   VoiceNote
 } from '../types'
-import { generateCode } from '../lib/utils'
 
 function statusFromClaims(
   claimedCount: number,
@@ -222,7 +218,11 @@ export function useEvent(eventId: string | undefined) {
       }
 
       let voiceNote: VoiceNote | null =
-        data.clearVoice ? null : (data.voiceNote !== undefined ? data.voiceNote : task.voiceNote || null)
+        data.clearVoice
+          ? null
+          : data.voiceNote !== undefined
+            ? data.voiceNote
+            : task.voiceNote || null
 
       if (data.voiceBlob) {
         voiceNote = await uploadVoiceBlob(
@@ -356,7 +356,6 @@ export async function createEvent(
   const title = data.title.trim()
   if (!title) throw new Error('Title is required')
 
-  const code = generateCode(6)
   const eventRef = doc(collection(db, 'events'))
   await setDoc(eventRef, {
     title,
@@ -366,19 +365,7 @@ export async function createEvent(
     eventDate: data.eventDate || null,
     createdAt: Date.now(),
     createdBy: ownerUid,
-    ownerName: ownerName.trim(),
-    code
+    ownerName: ownerName.trim()
   })
   return eventRef.id
-}
-
-export async function findEventByCode(code: string): Promise<string | null> {
-  const q = query(
-    collection(db, 'events'),
-    where('code', '==', code.toUpperCase()),
-    limit(1)
-  )
-  const snap = await getDocs(q)
-  if (snap.empty) return null
-  return snap.docs[0].id
 }
