@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
-import type { EventDoc, Task, TaskStatus, Attachment } from '../types'
+import type { EventDoc, Task, TaskStatus, Attachment, EventWritableFields } from '../types'
 import { generateCode } from '../lib/utils'
 
 export function useEvent(eventId: string | undefined) {
@@ -191,6 +191,22 @@ export function useEvent(eventId: string | undefined) {
     [eventId]
   )
 
+  const updateEvent = useCallback(
+    async (data: EventWritableFields) => {
+      if (!eventId) return
+      const title = data.title.trim()
+      if (!title) throw new Error('Title is required')
+      await updateDoc(doc(db, 'events', eventId), {
+        title,
+        description: data.description?.trim() || '',
+        location: data.location?.trim() || null,
+        phone: data.phone?.trim() || null,
+        eventDate: data.eventDate || null
+      })
+    },
+    [eventId]
+  )
+
   return {
     event,
     tasks,
@@ -201,19 +217,27 @@ export function useEvent(eventId: string | undefined) {
     unclaimTask,
     markDone,
     reopenTask,
-    deleteTask
+    deleteTask,
+    updateEvent
   }
 }
 
 export async function createEvent(
-  title: string,
+  data: EventWritableFields,
   ownerName: string,
   ownerUid: string
 ): Promise<string> {
+  const title = data.title.trim()
+  if (!title) throw new Error('Title is required')
+
   const code = generateCode(6)
   const eventRef = doc(collection(db, 'events'))
   await setDoc(eventRef, {
-    title: title.trim(),
+    title,
+    description: data.description?.trim() || '',
+    location: data.location?.trim() || null,
+    phone: data.phone?.trim() || null,
+    eventDate: data.eventDate || null,
     createdAt: Date.now(),
     createdBy: ownerUid,
     ownerName: ownerName.trim(),
