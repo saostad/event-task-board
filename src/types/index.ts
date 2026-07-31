@@ -20,6 +20,7 @@ export interface Task {
   createdBy?: string
   notes?: string
   location?: string | null // address text
+  phone?: string | null // tappable tel: link
   attachments?: Attachment[]
 }
 
@@ -28,9 +29,9 @@ export interface EventDoc {
   title: string
   description?: string
   createdAt: number
-  createdBy: string // uid or 'anonymous'
+  createdBy: string
   ownerName: string
-  code: string // short shareable code
+  code: string
 }
 
 export interface UserProfile {
