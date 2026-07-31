@@ -12,15 +12,15 @@ export interface Task {
   id: string
   title: string
   description: string
-  deadline: string | null // ISO date string
+  deadline: string | null
   capacity: number
-  claimedBy: string[] // display names
+  claimedBy: string[]
   status: TaskStatus
   createdAt: number
   createdBy?: string
   notes?: string
-  location?: string | null // address text
-  phone?: string | null // tappable tel: link
+  location?: string | null
+  phone?: string | null
   attachments?: Attachment[]
 }
 
@@ -28,10 +28,22 @@ export interface EventDoc {
   id: string
   title: string
   description?: string
+  location?: string | null
+  phone?: string | null
+  eventDate?: string | null // datetime-local / ISO-ish string
   createdAt: number
   createdBy: string
   ownerName: string
   code: string
+}
+
+/** Fields the owner can set when creating or editing an event */
+export type EventWritableFields = {
+  title: string
+  description?: string
+  location?: string | null
+  phone?: string | null
+  eventDate?: string | null
 }
 
 export interface UserProfile {
