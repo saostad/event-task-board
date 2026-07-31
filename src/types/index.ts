@@ -24,7 +24,7 @@ export interface Task {
   claimedBy: string[]
   status: TaskStatus
   createdAt: number
-  createdBy?: string
+  createdBy?: string | null
   notes?: string
   location?: string | null
   phone?: string | null
