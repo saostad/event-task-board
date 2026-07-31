@@ -89,19 +89,23 @@ export function EventBoard({
 
   const isOwner = event?.createdBy === userUid
 
-  const { members, loading: membersLoading, removeMember, joinDenied } = useEventMembers(
-    eventId,
-    {
-      uid: userUid,
-      displayName,
-      email: userEmail,
-      photoURL: userPhotoURL,
-      isOwner,
-      inviteFromUrl,
-      eventInviteToken: event?.inviteToken,
-      blockedUids: event?.blockedUids
-    }
-  )
+  const {
+    members,
+    blocked,
+    loading: membersLoading,
+    removeMember,
+    unblockMember,
+    joinDenied
+  } = useEventMembers(eventId, {
+    uid: userUid,
+    displayName,
+    email: userEmail,
+    photoURL: userPhotoURL,
+    isOwner,
+    inviteFromUrl,
+    eventInviteToken: event?.inviteToken,
+    blockedUids: event?.blockedUids
+  })
 
   const [showAdd, setShowAdd] = useState(false)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -113,7 +117,6 @@ export function EventBoard({
   const [regenBusy, setRegenBusy] = useState(false)
   const [lastToken, setLastToken] = useState<string | null>(null)
 
-  // Ensure older events get a token the first time the owner opens invite settings
   useEffect(() => {
     if (event?.inviteToken) setLastToken(event.inviteToken)
   }, [event?.inviteToken])
@@ -141,7 +144,6 @@ export function EventBoard({
     : null
 
   const handleShare = async () => {
-    // Create a token if this is an old event without one
     let url = shareUrl
     if (isOwner && !event?.inviteToken && !lastToken) {
       try {
@@ -203,7 +205,6 @@ export function EventBoard({
     )
   }
 
-  // Blocked or invalid invite (not owner)
   if (!isOwner && joinDenied) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -400,8 +401,10 @@ export function EventBoard({
       {showContributors && isOwner && (
         <ContributorsPanel
           members={members}
+          blocked={blocked}
           loading={membersLoading}
           onRemove={removeMember}
+          onUnblock={unblockMember}
           onClose={() => setShowContributors(false)}
         />
       )}
@@ -451,7 +454,7 @@ export function EventBoard({
             </div>
 
             <p className="mt-3 text-xs text-slate-500">
-              People you already removed stay blocked even if they get a new link.
+              Blocked people stay out until you unblock them under Contributors.
             </p>
           </div>
         </div>
