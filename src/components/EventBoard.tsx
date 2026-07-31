@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Share2, Check, Settings } from 'lucide-react'
+import { Plus, Share2, Check, Settings, MapPin, Phone, Calendar } from 'lucide-react'
 import { useEvent } from '../hooks/useEvent'
 import { TaskCard } from './TaskCard'
 import { AddTaskForm } from './AddTaskForm'
@@ -15,6 +15,27 @@ interface Props {
 }
 
 type Filter = 'all' | 'open' | 'claimed' | 'done' | 'mine'
+
+function telHref(phone: string) {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`
+}
+
+function formatEventDate(value: string | null | undefined) {
+  if (!value) return null
+  try {
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return value
+    return d.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+  } catch {
+    return value
+  }
+}
 
 export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Props) {
   const {
@@ -49,6 +70,10 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
   const doneCount = tasks.filter((t) => t.status === 'done').length
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const eventDateLabel = formatEventDate(event?.eventDate)
+  const mapsUrl = event?.location
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`
+    : null
 
   const handleShare = async () => {
     if (navigator.share) {
@@ -124,11 +149,44 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
               <button
                 onClick={() => setShowName(true)}
                 className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 transition"
-                title="Change name"
+                title="Change display name"
               >
                 <Settings className="w-5 h-5" />
               </button>
             </div>
+          </div>
+
+          {event.description && (
+            <p className="mt-2 text-sm text-slate-400 whitespace-pre-wrap">{event.description}</p>
+          )}
+
+          <div className="mt-2 flex flex-col gap-1">
+            {eventDateLabel && (
+              <div className="inline-flex items-center gap-1.5 text-sm text-slate-300">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                {eventDateLabel}
+              </div>
+            )}
+            {event.location && (
+              <a
+                href={mapsUrl!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-brand-400 hover:text-brand-300"
+              >
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="underline underline-offset-2">{event.location}</span>
+              </a>
+            )}
+            {event.phone && (
+              <a
+                href={telHref(event.phone)}
+                className="inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300"
+              >
+                <Phone className="w-3.5 h-3.5 shrink-0" />
+                <span className="underline underline-offset-2">{event.phone}</span>
+              </a>
+            )}
           </div>
 
           <div className="mt-3 flex gap-3 text-sm">
@@ -205,9 +263,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
         </button>
       )}
 
-      {showAdd && (
-        <AddTaskForm onAdd={addTask} onClose={() => setShowAdd(false)} />
-      )}
+      {showAdd && <AddTaskForm onAdd={addTask} onClose={() => setShowAdd(false)} />}
 
       {(showName || !displayName) && (
         <NamePrompt
