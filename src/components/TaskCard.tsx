@@ -9,7 +9,8 @@ import {
   AlertCircle,
   MapPin,
   Paperclip,
-  ExternalLink
+  ExternalLink,
+  Phone
 } from 'lucide-react'
 import type { Task } from '../types'
 import { formatDeadline, isOverdue, cn } from '../lib/utils'
@@ -29,6 +30,12 @@ function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** Build a tel: href from whatever the user typed */
+function telHref(phone: string) {
+  const digits = phone.replace(/[^\d+]/g, '')
+  return `tel:${digits}`
 }
 
 export function TaskCard({
@@ -92,6 +99,17 @@ export function TaskCard({
             </a>
           )}
 
+          {/* Phone — tappable to call */}
+          {task.phone && (
+            <a
+              href={telHref(task.phone)}
+              className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-emerald-400 hover:text-emerald-300"
+            >
+              <Phone className="w-3.5 h-3.5 shrink-0" />
+              <span className="underline underline-offset-2">{task.phone}</span>
+            </a>
+          )}
+
           {/* Meta badges */}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             {task.deadline && (
@@ -126,7 +144,6 @@ export function TaskCard({
             )}
           </div>
 
-          {/* Claimed by */}
           {task.claimedBy.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {task.claimedBy.map((name) => (
@@ -145,7 +162,6 @@ export function TaskCard({
             </div>
           )}
 
-          {/* Attachments list */}
           {hasAttachments && (
             <div className="mt-3 space-y-1.5">
               {task.attachments!.map((att, i) => (
@@ -167,7 +183,6 @@ export function TaskCard({
         </div>
       </div>
 
-      {/* Actions */}
       <div className="mt-4 flex flex-wrap gap-2">
         {task.status !== 'done' && (
           <>
