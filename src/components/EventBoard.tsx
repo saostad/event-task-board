@@ -4,6 +4,7 @@ import { useEvent } from '../hooks/useEvent'
 import { TaskCard } from './TaskCard'
 import { AddTaskForm } from './AddTaskForm'
 import { NamePrompt } from './NamePrompt'
+import { AppFooter } from './AppFooter'
 import { cn } from '../lib/utils'
 
 interface Props {
@@ -95,8 +96,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
   }
 
   return (
-    <div className="min-h-screen pb-24">
-      {/* Header */}
+    <div className="min-h-screen pb-28 flex flex-col">
       <header className="sticky top-0 z-20 bg-slate-950/90 backdrop-blur border-b border-slate-800">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-start justify-between gap-3">
@@ -145,8 +145,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
         </div>
       </header>
 
-      {/* Filters */}
-      <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto">
+      <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto w-full">
         <div className="flex gap-2">
           {(['all', 'open', 'claimed', 'done', 'mine'] as Filter[]).map((f) => (
             <button
@@ -165,8 +164,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
         </div>
       </div>
 
-      {/* Task list */}
-      <main className="max-w-2xl mx-auto px-4 space-y-3">
+      <main className="max-w-2xl mx-auto px-4 space-y-3 flex-1 w-full">
         {filtered.length === 0 ? (
           <div className="text-center py-16 text-slate-500">
             {tasks.length === 0
@@ -196,7 +194,8 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
         )}
       </main>
 
-      {/* FAB */}
+      <AppFooter />
+
       {isOwner && (
         <button
           onClick={() => setShowAdd(true)}
