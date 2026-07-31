@@ -125,7 +125,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
   const available = addButtons.filter((b) => !visible.has(b.id))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-lg bg-slate-900 rounded-2xl p-5 shadow-xl border border-slate-700 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Add Task</h2>
@@ -135,7 +135,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Always: title */}
           <div>
             <label className="block text-sm text-slate-400 mb-1">Title *</label>
             <input
@@ -148,7 +147,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             />
           </div>
 
-          {/* Optional: description */}
           {visible.has('description') && (
             <div className="relative">
               <div className="flex items-center justify-between mb-1">
@@ -171,7 +169,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: voice */}
           {visible.has('voice') && (
             <div className="relative">
               <button
@@ -196,7 +193,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: location */}
           {visible.has('location') && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -217,7 +213,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: phone */}
           {visible.has('phone') && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -240,7 +235,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: deadline */}
           {visible.has('deadline') && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -260,7 +254,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: capacity */}
           {visible.has('capacity') && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -282,7 +275,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Optional: files */}
           {visible.has('files') && (
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -336,7 +328,6 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </div>
           )}
 
-          {/* Add more — contact-style chips */}
           {available.length > 0 && (
             <div>
               <p className="text-xs text-slate-500 mb-2 text-center">Add more</p>
