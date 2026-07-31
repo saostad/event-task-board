@@ -82,24 +82,24 @@ export function useEvent(eventId: string | undefined) {
       deadline?: string | null
       capacity?: number
       location?: string | null
+      phone?: string | null
       files?: File[]
     }) => {
       if (!eventId) return
 
-      // 1. Create the task first (so we have an ID for Storage path)
       const taskRef = await addDoc(collection(db, 'events', eventId, 'tasks'), {
         title: data.title.trim(),
         description: data.description?.trim() || '',
         deadline: data.deadline || null,
         capacity: data.capacity || 1,
         location: data.location?.trim() || null,
+        phone: data.phone?.trim() || null,
         claimedBy: [],
         status: 'open' as TaskStatus,
         createdAt: Date.now(),
         attachments: []
       })
 
-      // 2. Upload any files
       if (data.files && data.files.length > 0) {
         const attachments: Attachment[] = []
 
@@ -118,7 +118,6 @@ export function useEvent(eventId: string | undefined) {
           })
         }
 
-        // 3. Save attachment metadata on the task
         await updateDoc(taskRef, { attachments })
       }
     },
