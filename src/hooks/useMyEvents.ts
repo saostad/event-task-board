@@ -6,13 +6,12 @@ import {
   orderBy,
   onSnapshot,
   updateDoc,
-  deleteDoc,
   doc,
   getDocs,
   writeBatch
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { EventDoc } from '../types'
+import type { EventDoc, EventWritableFields } from '../types'
 
 export function useMyEvents(uid: string | undefined) {
   const [events, setEvents] = useState<EventDoc[]>([])
@@ -27,7 +26,6 @@ export function useMyEvents(uid: string | undefined) {
     }
 
     setLoading(true)
-    // Requires composite index: createdBy ASC, createdAt DESC
     const q = query(
       collection(db, 'events'),
       where('createdBy', '==', uid),
@@ -53,13 +51,19 @@ export function useMyEvents(uid: string | undefined) {
     return () => unsub()
   }, [uid])
 
-  const renameEvent = useCallback(async (eventId: string, title: string) => {
-    const trimmed = title.trim()
-    if (!trimmed) return
-    await updateDoc(doc(db, 'events', eventId), { title: trimmed })
+  const updateEvent = useCallback(async (eventId: string, data: EventWritableFields) => {
+    const title = data.title.trim()
+    if (!title) throw new Error('Title is required')
+
+    await updateDoc(doc(db, 'events', eventId), {
+      title,
+      description: data.description?.trim() || '',
+      location: data.location?.trim() || null,
+      phone: data.phone?.trim() || null,
+      eventDate: data.eventDate || null
+    })
   }, [])
 
-  /** Deletes the event and all tasks under it */
   const deleteEvent = useCallback(async (eventId: string) => {
     const tasksSnap = await getDocs(collection(db, 'events', eventId, 'tasks'))
     const batch = writeBatch(db)
@@ -68,5 +72,5 @@ export function useMyEvents(uid: string | undefined) {
     await batch.commit()
   }, [])
 
-  return { events, loading, error, renameEvent, deleteEvent }
+  return { events, loading, error, updateEvent, deleteEvent }
 }
