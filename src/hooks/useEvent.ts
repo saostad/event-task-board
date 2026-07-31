@@ -15,7 +15,14 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../lib/firebase'
-import type { EventDoc, Task, TaskStatus, Attachment, EventWritableFields } from '../types'
+import type {
+  EventDoc,
+  Task,
+  TaskStatus,
+  Attachment,
+  EventWritableFields,
+  VoiceNote
+} from '../types'
 import { generateCode } from '../lib/utils'
 
 function statusFromClaims(
@@ -27,6 +34,25 @@ function statusFromClaims(
   if (claimedCount === 0) return 'open'
   if (claimedCount >= capacity) return 'claimed'
   return 'open'
+}
+
+async function uploadVoiceBlob(
+  eventId: string,
+  taskId: string,
+  blob: Blob,
+  durationMs: number
+): Promise<VoiceNote> {
+  const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
+  const path = `events/${eventId}/tasks/${taskId}/voice_${Date.now()}.${ext}`
+  const storageRef = ref(storage, path)
+  await uploadBytes(storageRef, blob, { contentType: blob.type || 'audio/webm' })
+  const url = await getDownloadURL(storageRef)
+  return {
+    url,
+    durationMs,
+    size: blob.size,
+    uploadedAt: Date.now()
+  }
 }
 
 export function useEvent(eventId: string | undefined) {
@@ -95,6 +121,8 @@ export function useEvent(eventId: string | undefined) {
       location?: string | null
       phone?: string | null
       files?: File[]
+      voiceBlob?: Blob | null
+      voiceDurationMs?: number
     }) => {
       if (!eventId) return
 
@@ -108,18 +136,19 @@ export function useEvent(eventId: string | undefined) {
         claimedBy: [],
         status: 'open' as TaskStatus,
         createdAt: Date.now(),
-        attachments: []
+        attachments: [],
+        voiceNote: null
       })
+
+      const updates: Record<string, unknown> = {}
 
       if (data.files && data.files.length > 0) {
         const attachments: Attachment[] = []
-
         for (const file of data.files) {
           const path = `events/${eventId}/tasks/${taskRef.id}/${Date.now()}_${file.name}`
           const storageRef = ref(storage, path)
           await uploadBytes(storageRef, file)
           const url = await getDownloadURL(storageRef)
-
           attachments.push({
             name: file.name,
             url,
@@ -128,8 +157,20 @@ export function useEvent(eventId: string | undefined) {
             uploadedAt: Date.now()
           })
         }
+        updates.attachments = attachments
+      }
 
-        await updateDoc(taskRef, { attachments })
+      if (data.voiceBlob) {
+        updates.voiceNote = await uploadVoiceBlob(
+          eventId,
+          taskRef.id,
+          data.voiceBlob,
+          data.voiceDurationMs || 0
+        )
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(taskRef, updates)
       }
     },
     [eventId]
@@ -147,6 +188,10 @@ export function useEvent(eventId: string | undefined) {
         phone?: string | null
         attachments?: Attachment[]
         newFiles?: File[]
+        voiceNote?: VoiceNote | null
+        voiceBlob?: Blob | null
+        voiceDurationMs?: number
+        clearVoice?: boolean
       }
     ) => {
       if (!eventId) return
@@ -176,6 +221,18 @@ export function useEvent(eventId: string | undefined) {
         attachments = [...attachments, ...uploaded].slice(0, 5)
       }
 
+      let voiceNote: VoiceNote | null =
+        data.clearVoice ? null : (data.voiceNote !== undefined ? data.voiceNote : task.voiceNote || null)
+
+      if (data.voiceBlob) {
+        voiceNote = await uploadVoiceBlob(
+          eventId,
+          taskId,
+          data.voiceBlob,
+          data.voiceDurationMs || 0
+        )
+      }
+
       await updateDoc(doc(db, 'events', eventId, 'tasks', taskId), {
         title: data.title.trim(),
         description: data.description?.trim() || '',
@@ -184,6 +241,7 @@ export function useEvent(eventId: string | undefined) {
         location: data.location?.trim() || null,
         phone: data.phone?.trim() || null,
         attachments,
+        voiceNote,
         status
       })
     },
