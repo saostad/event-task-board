@@ -1,15 +1,24 @@
 import { useState } from 'react'
-import { X, Users, Trash2, Crown } from 'lucide-react'
-import type { EventMember } from '../types'
+import { X, Users, Trash2, Crown, UserCheck, Ban } from 'lucide-react'
+import type { EventMember, BlockedMember } from '../types'
 
 interface Props {
   members: EventMember[]
+  blocked: BlockedMember[]
   loading: boolean
   onRemove: (member: EventMember) => Promise<void>
+  onUnblock: (member: BlockedMember) => Promise<void>
   onClose: () => void
 }
 
-export function ContributorsPanel({ members, loading, onRemove, onClose }: Props) {
+export function ContributorsPanel({
+  members,
+  blocked,
+  loading,
+  onRemove,
+  onUnblock,
+  onClose
+}: Props) {
   const [busyUid, setBusyUid] = useState<string | null>(null)
   const [confirmUid, setConfirmUid] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -25,6 +34,18 @@ export function ContributorsPanel({ members, loading, onRemove, onClose }: Props
       setConfirmUid(null)
     } catch (err: any) {
       setError(err?.message || 'Could not remove')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  const handleUnblock = async (member: BlockedMember) => {
+    setBusyUid(member.uid)
+    setError('')
+    try {
+      await onUnblock(member)
+    } catch (err: any) {
+      setError(err?.message || 'Could not unblock')
     } finally {
       setBusyUid(null)
     }
@@ -51,7 +72,7 @@ export function ContributorsPanel({ members, loading, onRemove, onClose }: Props
             <p className="text-sm text-slate-500 py-8 text-center">Loading…</p>
           )}
 
-          {!loading && members.length === 0 && (
+          {!loading && members.length === 0 && blocked.length === 0 && (
             <p className="text-sm text-slate-500 py-8 text-center">
               No one has joined yet. Share the event link.
             </p>
@@ -95,7 +116,7 @@ export function ContributorsPanel({ members, loading, onRemove, onClose }: Props
           )}
 
           {contributors.length > 0 && (
-            <div>
+            <div className="mb-4">
               <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">
                 Helpers ({contributors.length})
               </p>
@@ -150,7 +171,7 @@ export function ContributorsPanel({ members, loading, onRemove, onClose }: Props
                         type="button"
                         onClick={() => setConfirmUid(m.uid)}
                         className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 shrink-0"
-                        title="Remove contributor"
+                        title="Remove & block"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -162,17 +183,63 @@ export function ContributorsPanel({ members, loading, onRemove, onClose }: Props
           )}
 
           {!loading && contributors.length === 0 && owners.length > 0 && (
-            <p className="text-sm text-slate-500 py-4 text-center">
+            <p className="text-sm text-slate-500 py-2 text-center mb-3">
               No helpers yet. Share the link so people can join.
             </p>
+          )}
+
+          {blocked.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                <Ban className="w-3.5 h-3.5" /> Blocked ({blocked.length})
+              </p>
+              <ul className="space-y-2">
+                {blocked.map((m) => (
+                  <li
+                    key={m.uid}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-slate-900/80 border border-slate-800 opacity-90"
+                  >
+                    {m.photoURL ? (
+                      <img
+                        src={m.photoURL}
+                        alt=""
+                        className="w-9 h-9 rounded-full object-cover grayscale"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-sm font-medium text-slate-500">
+                        {(m.displayName || '?')[0].toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm truncate text-slate-400">
+                        {m.displayName}
+                      </div>
+                      {m.email && (
+                        <div className="text-xs text-slate-600 truncate">{m.email}</div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleUnblock(m)}
+                      disabled={busyUid === m.uid}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-emerald-600/20 hover:text-emerald-400 text-slate-300 shrink-0 disabled:opacity-50 transition"
+                      title="Allow them to join again"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      {busyUid === m.uid ? '…' : 'Unblock'}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
 
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </div>
 
         <div className="px-5 py-3 border-t border-slate-800 text-xs text-slate-500">
-          Removing someone unclaims them from open tasks. They can rejoin with the same link
-          unless you stop sharing it.
+          Remove blocks someone from rejoining. Unblock lets them use the current invite link
+          again.
         </div>
       </div>
     </div>
