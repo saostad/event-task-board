@@ -4,6 +4,7 @@ import { Plus, LogIn, CalendarHeart, LogOut } from 'lucide-react'
 import { createEvent, findEventByCode } from '../hooks/useEvent'
 import { useAuth } from '../hooks/useAuth'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
+import { AppFooter } from '../components/AppFooter'
 
 export function Home() {
   const navigate = useNavigate()
@@ -57,34 +58,35 @@ export function Home() {
     )
   }
 
-  // Not signed in → Google only
   if (!user) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-md text-center">
-          <div className="inline-flex p-4 rounded-3xl bg-brand-500/10 mb-6">
-            <CalendarHeart className="w-12 h-12 text-brand-400" />
+      <div className="min-h-screen flex flex-col">
+        <div className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="w-full max-w-md text-center">
+            <div className="inline-flex p-4 rounded-3xl bg-brand-500/10 mb-6">
+              <CalendarHeart className="w-12 h-12 text-brand-400" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight">Event Task Board</h1>
+            <p className="mt-2 text-slate-400 mb-8">
+              Create events, share a link, and let people volunteer for tasks.
+            </p>
+
+            <GoogleSignInButton onClick={login} />
+
+            {authError && (
+              <p className="mt-4 text-sm text-red-400">{authError}</p>
+            )}
+
+            <p className="mt-6 text-xs text-slate-500">
+              Google is the only sign-in method. No passwords to remember.
+            </p>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Event Task Board</h1>
-          <p className="mt-2 text-slate-400 mb-8">
-            Create events, share a link, and let people volunteer for tasks.
-          </p>
-
-          <GoogleSignInButton onClick={login} />
-
-          {authError && (
-            <p className="mt-4 text-sm text-red-400">{authError}</p>
-          )}
-
-          <p className="mt-6 text-xs text-slate-500">
-            Google is the only sign-in method. No passwords to remember.
-          </p>
         </div>
+        <AppFooter />
       </div>
     )
   }
 
-  // Signed in
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -200,9 +202,7 @@ export function Home() {
         </div>
       </div>
 
-      <footer className="text-center text-xs text-slate-600 pb-6">
-        Install as app · Works offline after first load
-      </footer>
+      <AppFooter />
     </div>
   )
 }
