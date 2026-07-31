@@ -42,7 +42,11 @@ export interface EventDoc {
   createdAt: number
   createdBy: string
   ownerName: string
-  /** @deprecated No longer used; kept optional for old events */
+  /** Rotatable invite secret embedded in share links */
+  inviteToken?: string
+  /** UIDs removed by the owner — cannot rejoin */
+  blockedUids?: string[]
+  /** @deprecated */
   code?: string
 }
 
@@ -54,7 +58,6 @@ export type EventWritableFields = {
   eventDate?: string | null
 }
 
-/** Someone who opened the event via share link (or the owner). */
 export interface EventMember {
   uid: string
   displayName: string
