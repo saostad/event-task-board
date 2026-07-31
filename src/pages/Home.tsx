@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus,
-  LogIn,
   CalendarHeart,
   LogOut,
   Pencil,
@@ -11,7 +10,7 @@ import {
   X,
   Search
 } from 'lucide-react'
-import { createEvent, findEventByCode } from '../hooks/useEvent'
+import { createEvent } from '../hooks/useEvent'
 import { useMyEvents } from '../hooks/useMyEvents'
 import { useAuth } from '../hooks/useAuth'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
@@ -48,9 +47,8 @@ export function Home() {
     deleteEvent
   } = useMyEvents(user?.uid)
 
-  const [mode, setMode] = useState<'home' | 'create' | 'join'>('home')
+  const [mode, setMode] = useState<'home' | 'create'>('home')
   const [form, setForm] = useState<EventWritableFields>(emptyFields())
-  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -65,7 +63,6 @@ export function Home() {
     const q = query.trim().toLowerCase()
     return (
       ev.title.toLowerCase().includes(q) ||
-      ev.code.toLowerCase().includes(q) ||
       (ev.location || '').toLowerCase().includes(q)
     )
   })
@@ -81,25 +78,6 @@ export function Home() {
       navigate(`/e/${id}`)
     } catch (err: any) {
       setError(err.message || 'Failed to create event')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!code.trim()) return
-    setBusy(true)
-    setError('')
-    try {
-      const id = await findEventByCode(code.trim())
-      if (!id) {
-        setError('No event found with that code')
-        return
-      }
-      navigate(`/e/${id}`)
-    } catch (err: any) {
-      setError(err.message || 'Failed to join')
     } finally {
       setBusy(false)
     }
@@ -191,28 +169,17 @@ export function Home() {
       <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-5">
         {mode === 'home' && (
           <>
-            <div className="flex gap-2 mb-5">
+            <div className="mb-5">
               <button
                 onClick={() => {
                   setMode('create')
                   setError('')
                   setForm(emptyFields())
                 }}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-sm font-medium transition"
+                className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-sm font-medium transition"
               >
                 <Plus className="w-4 h-4" />
                 New event
-              </button>
-              <button
-                onClick={() => {
-                  setMode('join')
-                  setError('')
-                  setCode('')
-                }}
-                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium transition border border-slate-700"
-              >
-                <LogIn className="w-4 h-4" />
-                Join code
               </button>
             </div>
 
@@ -287,13 +254,11 @@ export function Home() {
                     <div className="min-w-0 flex-1">
                       <div className="font-medium truncate">{ev.title}</div>
                       <div className="text-xs text-slate-400 mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                        <span className="font-mono text-brand-400/90">{ev.code}</span>
-                        <span className="text-slate-600">·</span>
                         <span>{new Date(ev.createdAt).toLocaleDateString()}</span>
                         {ev.location && (
                           <>
                             <span className="text-slate-600">·</span>
-                            <span className="truncate max-w-[10rem]">{ev.location}</span>
+                            <span className="truncate max-w-[12rem]">{ev.location}</span>
                           </>
                         )}
                       </div>
@@ -343,7 +308,7 @@ export function Home() {
             </button>
             <h2 className="text-xl font-semibold mb-1">New event</h2>
             <p className="text-sm text-slate-400 mb-5">
-              Fill in the details. You can edit them anytime later.
+              Fill in the details. Share the event link with helpers after creating.
             </p>
             <form onSubmit={handleCreate} className="space-y-4">
               <EventFieldsForm values={form} onChange={setForm} idPrefix="create" />
@@ -354,44 +319,6 @@ export function Home() {
                 className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition"
               >
                 {busy ? 'Creating...' : 'Create event'}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {mode === 'join' && (
-          <div className="max-w-md">
-            <button
-              type="button"
-              onClick={() => setMode('home')}
-              className="text-sm text-slate-400 hover:text-white mb-4 transition"
-            >
-              ← Back
-            </button>
-            <h2 className="text-xl font-semibold mb-1">Join with code</h2>
-            <p className="text-sm text-slate-400 mb-5">
-              Enter the 6-character code from the event owner.
-            </p>
-            <form onSubmit={handleJoin} className="space-y-4">
-              <div>
-                <label className="block text-sm text-slate-400 mb-1.5">Event code</label>
-                <input
-                  autoFocus
-                  required
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.toUpperCase())}
-                  placeholder="e.g. CMCCZC"
-                  className="w-full px-4 py-3.5 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-lg font-mono tracking-widest text-center uppercase"
-                  maxLength={8}
-                />
-              </div>
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              <button
-                type="submit"
-                disabled={busy || !code.trim()}
-                className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition"
-              >
-                {busy ? 'Joining...' : 'Join event'}
               </button>
             </form>
           </div>
@@ -411,10 +338,6 @@ export function Home() {
             </div>
             <form onSubmit={handleSaveEdit} className="space-y-4">
               <EventFieldsForm values={editForm} onChange={setEditForm} idPrefix="edit" />
-              <p className="text-xs text-slate-500">
-                Code stays the same:{' '}
-                <span className="font-mono text-brand-400">{editing.code}</span>
-              </p>
               {error && <p className="text-sm text-red-400">{error}</p>}
               <button
                 type="submit"
