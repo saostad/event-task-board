@@ -8,7 +8,8 @@ import {
   getDocs,
   updateDoc,
   orderBy,
-  query
+  query,
+  arrayUnion
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import type { EventMember, Task, TaskStatus } from '../types'
@@ -27,12 +28,20 @@ export function useEventMembers(
     email?: string | null
     photoURL?: string | null
     isOwner?: boolean
+    /** From ?invite= in the URL */
+    inviteFromUrl?: string | null
+    /** Current event.inviteToken */
+    eventInviteToken?: string | null
+    /** Current event.blockedUids */
+    blockedUids?: string[]
+    /** Called when join is refused */
+    onJoinDenied?: (reason: 'blocked' | 'invalid_invite') => void
   }
 ) {
   const [members, setMembers] = useState<EventMember[]>([])
   const [loading, setLoading] = useState(true)
+  const [joinDenied, setJoinDenied] = useState<'blocked' | 'invalid_invite' | null>(null)
 
-  // Live member list
   useEffect(() => {
     if (!eventId) {
       setMembers([])
@@ -62,11 +71,37 @@ export function useEventMembers(
     return () => unsub()
   }, [eventId])
 
-  // Auto-register current user when they open the event
+  // Auto-register (or refuse) current user
   useEffect(() => {
     if (!eventId || !options?.uid || !options.displayName) return
 
-    const memberRef = doc(db, 'events', eventId, 'members', options.uid)
+    const uid = options.uid
+    const blocked = options.blockedUids || []
+
+    if (blocked.includes(uid)) {
+      setJoinDenied('blocked')
+      options.onJoinDenied?.('blocked')
+      return
+    }
+
+    const alreadyMember = members.some((m) => m.uid === uid)
+    const isOwner = !!options.isOwner
+
+    // New joiners need a matching invite token when the event has one
+    if (!alreadyMember && !isOwner) {
+      const required = options.eventInviteToken
+      if (required) {
+        if (!options.inviteFromUrl || options.inviteFromUrl !== required) {
+          setJoinDenied('invalid_invite')
+          options.onJoinDenied?.('invalid_invite')
+          return
+        }
+      }
+    }
+
+    setJoinDenied(null)
+
+    const memberRef = doc(db, 'events', eventId, 'members', uid)
     setDoc(
       memberRef,
       {
@@ -74,7 +109,7 @@ export function useEventMembers(
         email: options.email || null,
         photoURL: options.photoURL || null,
         joinedAt: Date.now(),
-        role: options.isOwner ? 'owner' : 'contributor'
+        role: isOwner ? 'owner' : 'contributor'
       },
       { merge: true }
     ).catch((err) => console.error('join member failed', err))
@@ -84,16 +119,18 @@ export function useEventMembers(
     options?.displayName,
     options?.email,
     options?.photoURL,
-    options?.isOwner
+    options?.isOwner,
+    options?.inviteFromUrl,
+    options?.eventInviteToken,
+    options?.blockedUids,
+    members
   ])
 
-  /** Owner removes a contributor: drop membership + unclaim their tasks */
   const removeMember = useCallback(
     async (member: EventMember) => {
       if (!eventId) return
       if (member.role === 'owner') return
 
-      // Unclaim from all tasks under this display name
       const tasksSnap = await getDocs(collection(db, 'events', eventId, 'tasks'))
       const updates: Promise<void>[] = []
 
@@ -113,9 +150,14 @@ export function useEventMembers(
 
       await Promise.all(updates)
       await deleteDoc(doc(db, 'events', eventId, 'members', member.uid))
+
+      // Block rejoin even with a valid invite link
+      await updateDoc(doc(db, 'events', eventId), {
+        blockedUids: arrayUnion(member.uid)
+      })
     },
     [eventId]
   )
 
-  return { members, loading, removeMember }
+  return { members, loading, removeMember, joinDenied }
 }
