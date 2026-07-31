@@ -8,6 +8,13 @@ export interface Attachment {
   uploadedAt: number
 }
 
+export interface VoiceNote {
+  url: string
+  durationMs: number
+  size: number
+  uploadedAt: number
+}
+
 export interface Task {
   id: string
   title: string
@@ -22,6 +29,7 @@ export interface Task {
   location?: string | null
   phone?: string | null
   attachments?: Attachment[]
+  voiceNote?: VoiceNote | null
 }
 
 export interface EventDoc {
@@ -30,14 +38,13 @@ export interface EventDoc {
   description?: string
   location?: string | null
   phone?: string | null
-  eventDate?: string | null // datetime-local / ISO-ish string
+  eventDate?: string | null
   createdAt: number
   createdBy: string
   ownerName: string
   code: string
 }
 
-/** Fields the owner can set when creating or editing an event */
 export type EventWritableFields = {
   title: string
   description?: string
