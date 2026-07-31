@@ -10,7 +10,9 @@ import {
   MapPin,
   Paperclip,
   ExternalLink,
-  Phone
+  Phone,
+  Pencil,
+  X
 } from 'lucide-react'
 import type { Task } from '../types'
 import { formatDeadline, isOverdue, cn } from '../lib/utils'
@@ -20,10 +22,11 @@ interface Props {
   currentName: string
   isOwner: boolean
   onClaim: (id: string) => void
-  onUnclaim: (id: string) => void
+  onUnclaim: (id: string, name?: string) => void
   onDone: (id: string) => void
   onReopen: (id: string) => void
   onDelete: (id: string) => void
+  onEdit: (task: Task) => void
 }
 
 function formatFileSize(bytes: number) {
@@ -32,7 +35,6 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-/** Build a tel: href from whatever the user typed */
 function telHref(phone: string) {
   const digits = phone.replace(/[^\d+]/g, '')
   return `tel:${digits}`
@@ -46,7 +48,8 @@ export function TaskCard({
   onUnclaim,
   onDone,
   onReopen,
-  onDelete
+  onDelete,
+  onEdit
 }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const isClaimedByMe = task.claimedBy.includes(currentName)
@@ -80,12 +83,9 @@ export function TaskCard({
           </h3>
 
           {task.description && (
-            <p className="mt-1 text-sm text-slate-400 whitespace-pre-wrap">
-              {task.description}
-            </p>
+            <p className="mt-1 text-sm text-slate-400 whitespace-pre-wrap">{task.description}</p>
           )}
 
-          {/* Location */}
           {task.location && (
             <a
               href={mapsUrl!}
@@ -99,7 +99,6 @@ export function TaskCard({
             </a>
           )}
 
-          {/* Phone — tappable to call */}
           {task.phone && (
             <a
               href={telHref(task.phone)}
@@ -110,7 +109,6 @@ export function TaskCard({
             </a>
           )}
 
-          {/* Meta badges */}
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
             {task.deadline && (
               <span
@@ -144,19 +142,33 @@ export function TaskCard({
             )}
           </div>
 
+          {/* Contributors — owner can remove any */}
           {task.claimedBy.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {task.claimedBy.map((name) => (
                 <span
                   key={name}
                   className={cn(
-                    'text-xs px-2 py-0.5 rounded-full',
+                    'text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1',
                     name === currentName
                       ? 'bg-brand-500/30 text-brand-200'
                       : 'bg-slate-800 text-slate-300'
                   )}
                 >
                   {name}
+                  {isOwner && task.status !== 'done' && (
+                    <button
+                      type="button"
+                      title={`Remove ${name}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUnclaim(task.id, name)
+                      }}
+                      className="ml-0.5 p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-300"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
                 </span>
               ))}
             </div>
@@ -226,6 +238,15 @@ export function TaskCard({
 
         {isOwner && (
           <>
+            <button
+              onClick={() => onEdit(task)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sm text-slate-300 transition"
+              title="Edit task"
+            >
+              <Pencil className="w-4 h-4" />
+              Edit
+            </button>
+
             {!confirmDelete ? (
               <button
                 onClick={() => setConfirmDelete(true)}
