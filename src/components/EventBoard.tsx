@@ -15,6 +15,7 @@ import {
 import { useEvent } from '../hooks/useEvent'
 import { useEventMembers } from '../hooks/useEventMembers'
 import { TaskCard } from './TaskCard'
+import { TaskDetail } from './TaskDetail'
 import { AddTaskForm } from './AddTaskForm'
 import { EditTaskForm } from './EditTaskForm'
 import { NamePrompt } from './NamePrompt'
@@ -108,6 +109,7 @@ export function EventBoard({
   })
 
   const [showAdd, setShowAdd] = useState(false)
+  const [viewingTaskId, setViewingTaskId] = useState<string | null>(null)
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showName, setShowName] = useState(false)
   const [showContributors, setShowContributors] = useState(false)
@@ -117,9 +119,21 @@ export function EventBoard({
   const [regenBusy, setRegenBusy] = useState(false)
   const [lastToken, setLastToken] = useState<string | null>(null)
 
+  // Live task for detail (updates when Firestore changes)
+  const viewingTask = viewingTaskId
+    ? tasks.find((t) => t.id === viewingTaskId) || null
+    : null
+
   useEffect(() => {
     if (event?.inviteToken) setLastToken(event.inviteToken)
   }, [event?.inviteToken])
+
+  // If task was deleted while open, close detail
+  useEffect(() => {
+    if (viewingTaskId && !tasks.some((t) => t.id === viewingTaskId)) {
+      setViewingTaskId(null)
+    }
+  }, [tasks, viewingTaskId])
 
   const shareUrl = useMemo(() => {
     if (typeof window === 'undefined') return ''
@@ -360,6 +374,7 @@ export function EventBoard({
               task={task}
               currentName={displayName}
               isOwner={isOwner}
+              onOpen={(t) => setViewingTaskId(t.id)}
               onClaim={(id) => {
                 if (!displayName) {
                   setShowName(true)
@@ -367,11 +382,6 @@ export function EventBoard({
                 }
                 claimTask(id, displayName)
               }}
-              onUnclaim={(id, name) => unclaimTask(id, name || displayName)}
-              onDone={markDone}
-              onReopen={reopenTask}
-              onDelete={deleteTask}
-              onEdit={setEditingTask}
             />
           ))
         )}
@@ -379,13 +389,36 @@ export function EventBoard({
 
       <AppFooter />
 
-      {isOwner && (
+      {isOwner && !viewingTask && (
         <button
           onClick={() => setShowAdd(true)}
           className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-500 shadow-lg shadow-brand-900/40 flex items-center justify-center transition z-30"
         >
           <Plus className="w-7 h-7" />
         </button>
+      )}
+
+      {viewingTask && (
+        <TaskDetail
+          task={viewingTask}
+          currentName={displayName}
+          isOwner={isOwner}
+          onClose={() => setViewingTaskId(null)}
+          onClaim={(id) => {
+            if (!displayName) {
+              setShowName(true)
+              return
+            }
+            claimTask(id, displayName)
+          }}
+          onUnclaim={(id, name) => unclaimTask(id, name || displayName)}
+          onDone={markDone}
+          onReopen={reopenTask}
+          onDelete={deleteTask}
+          onEdit={(t) => {
+            setEditingTask(t)
+          }}
+        />
       )}
 
       {showAdd && <AddTaskForm onAdd={addTask} onClose={() => setShowAdd(false)} />}
