@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Plus, X, MapPin, Paperclip, File, Phone } from 'lucide-react'
+import { formatPhoneInput } from '../lib/utils'
 
 interface Props {
   onAdd: (data: {
@@ -109,8 +110,10 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
             </label>
             <input
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
               placeholder="e.g. (678) 555-1234"
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
