@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { Task } from '../types'
 import { formatDeadline, isOverdue, cn } from '../lib/utils'
+import { VoiceNotePlayer } from './VoiceNoteControl'
 
 interface Props {
   task: Task
@@ -86,6 +87,10 @@ export function TaskCard({
             <p className="mt-1 text-sm text-slate-400 whitespace-pre-wrap">{task.description}</p>
           )}
 
+          {task.voiceNote?.url && (
+            <VoiceNotePlayer url={task.voiceNote.url} durationMs={task.voiceNote.durationMs} />
+          )}
+
           {task.location && (
             <a
               href={mapsUrl!}
@@ -142,7 +147,6 @@ export function TaskCard({
             )}
           </div>
 
-          {/* Contributors — owner can remove any */}
           {task.claimedBy.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {task.claimedBy.map((name) => (
