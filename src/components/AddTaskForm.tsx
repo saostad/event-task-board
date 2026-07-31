@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { Plus, X, MapPin, Paperclip, File, Phone } from 'lucide-react'
-import { formatPhoneInput } from '../lib/utils'
+import { formatPhoneInput, compressImagesInFiles } from '../lib/utils'
 import { VoiceNoteControl } from './VoiceNoteControl'
 
 interface Props {
@@ -29,6 +29,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
   const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null)
   const [voiceDurationMs, setVoiceDurationMs] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [compressing, setCompressing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,11 +54,23 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
     }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
-    const valid = selected.filter((f) => f.size <= 10 * 1024 * 1024).slice(0, 5)
-    setFiles((prev) => [...prev, ...valid].slice(0, 5))
+    // Allow larger originals for images (we compress); keep 10MB for non-images
+    const candidates = selected.filter((f) => {
+      if (f.type.startsWith('image/')) return f.size <= 25 * 1024 * 1024
+      return f.size <= 10 * 1024 * 1024
+    })
     if (fileInputRef.current) fileInputRef.current.value = ''
+    if (candidates.length === 0) return
+
+    setCompressing(true)
+    try {
+      const processed = await compressImagesInFiles(candidates, 0.3)
+      setFiles((prev) => [...prev, ...processed].slice(0, 5))
+    } finally {
+      setCompressing(false)
+    }
   }
 
   const removeFile = (index: number) => {
@@ -183,7 +196,9 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
               className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-slate-600 rounded-xl text-slate-400 hover:border-brand-500 hover:text-brand-400 cursor-pointer transition text-sm"
             >
               <Paperclip className="w-4 h-4" />
-              Add files (max 5, 10MB each)
+              {compressing
+                ? 'Compressing images…'
+                : 'Add files (photos compressed to 30%)'}
             </label>
 
             {files.length > 0 && (
@@ -199,7 +214,8 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
                       {(file.size / 1024).toFixed(0)} KB
                     </span>
                     <button
-                      type="button"\tableofcontents onClick={() => removeFile(i)}
+                      type="button"
+                      onClick={() => removeFile(i)}
                       className="p-1 text-slate-400 hover:text-red-400"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -212,7 +228,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
 
           <button
             type="submit"
-            disabled={loading || !title.trim()}
+            disabled={loading || compressing || !title.trim()}
             className="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-500 font-medium disabled:opacity-50 transition flex items-center justify-center gap-2"
           >
             <Plus className="w-5 h-5" />
