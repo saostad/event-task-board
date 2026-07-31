@@ -1,5 +1,6 @@
 import { MapPin, Phone, Calendar } from 'lucide-react'
 import type { EventWritableFields } from '../types'
+import { formatPhoneInput } from '../lib/utils'
 
 interface Props {
   values: EventWritableFields
@@ -85,8 +86,10 @@ export function EventFieldsForm({ values, onChange, idPrefix = 'ev' }: Props) {
         <input
           id={`${idPrefix}-phone`}
           type="tel"
+          inputMode="tel"
+          autoComplete="tel"
           value={values.phone || ''}
-          onChange={(e) => set('phone', e.target.value)}
+          onChange={(e) => set('phone', formatPhoneInput(e.target.value))}
           placeholder="e.g. (678) 555-1234"
           className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
