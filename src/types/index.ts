@@ -42,9 +42,7 @@ export interface EventDoc {
   createdAt: number
   createdBy: string
   ownerName: string
-  /** Rotatable invite secret embedded in share links */
   inviteToken?: string
-  /** UIDs removed by the owner — cannot rejoin */
   blockedUids?: string[]
   /** @deprecated */
   code?: string
@@ -65,6 +63,14 @@ export interface EventMember {
   photoURL?: string | null
   joinedAt: number
   role: 'owner' | 'contributor'
+}
+
+export interface BlockedMember {
+  uid: string
+  displayName: string
+  email?: string | null
+  photoURL?: string | null
+  blockedAt: number
 }
 
 export interface UserProfile {
