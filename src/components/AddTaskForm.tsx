@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Plus, X, MapPin, Paperclip, File, Phone } from 'lucide-react'
 import { formatPhoneInput } from '../lib/utils'
+import { VoiceNoteControl } from './VoiceNoteControl'
 
 interface Props {
   onAdd: (data: {
@@ -11,6 +12,8 @@ interface Props {
     location?: string | null
     phone?: string | null
     files?: File[]
+    voiceBlob?: Blob | null
+    voiceDurationMs?: number
   }) => Promise<void>
   onClose: () => void
 }
@@ -23,6 +26,8 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
   const [location, setLocation] = useState('')
   const [phone, setPhone] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  const [voiceBlob, setVoiceBlob] = useState<Blob | null>(null)
+  const [voiceDurationMs, setVoiceDurationMs] = useState(0)
   const [loading, setLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -38,7 +43,9 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
         capacity: Math.max(1, capacity),
         location: location.trim() || null,
         phone: phone.trim() || null,
-        files: files.length > 0 ? files : undefined
+        files: files.length > 0 ? files : undefined,
+        voiceBlob,
+        voiceDurationMs
       })
       onClose()
     } finally {
@@ -90,6 +97,19 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
               className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
           </div>
+
+          <VoiceNoteControl
+            localBlob={voiceBlob}
+            onRecorded={(blob, durationMs) => {
+              setVoiceBlob(blob)
+              setVoiceDurationMs(durationMs)
+            }}
+            onCleared={() => {
+              setVoiceBlob(null)
+              setVoiceDurationMs(0)
+            }}
+            disabled={loading}
+          />
 
           <div>
             <label className="block text-sm text-slate-400 mb-1 flex items-center gap-1.5">
@@ -179,8 +199,7 @@ export function AddTaskForm({ onAdd, onClose }: Props) {
                       {(file.size / 1024).toFixed(0)} KB
                     </span>
                     <button
-                      type="button"
-                      onClick={() => removeFile(i)}
+                      type="button"\tableofcontents onClick={() => removeFile(i)}
                       className="p-1 text-slate-400 hover:text-red-400"
                     >
                       <X className="w-3.5 h-3.5" />
