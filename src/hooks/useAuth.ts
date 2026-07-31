@@ -8,6 +8,7 @@ import {
   setDisplayName,
   type User
 } from '../lib/firebase'
+import { startNotificationListeners } from '../lib/notifications'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -17,6 +18,7 @@ export function useAuth() {
 
   useEffect(() => {
     let mounted = true
+    let stopNotifications: (() => void) | undefined
 
     const unsub = onAuthStateChanged(auth, (u) => {
       if (!mounted) return
@@ -28,11 +30,27 @@ export function useAuth() {
         setDisplayNameState('')
       }
       setLoading(false)
+
+      // Start (or restart) push notification setup when a user is signed in
+      if (u) {
+        stopNotifications?.()
+        stopNotifications = startNotificationListeners((title, body) => {
+          // Simple foreground feedback – can be replaced with a nicer toast later
+          if (document.visibilityState === 'visible') {
+            // Browser may still show a system notification depending on the OS
+            console.info('[FCM foreground]', title, body)
+          }
+        })
+      } else {
+        stopNotifications?.()
+        stopNotifications = undefined
+      }
     })
 
     return () => {
       mounted = false
       unsub()
+      stopNotifications?.()
     }
   }, [])
 
