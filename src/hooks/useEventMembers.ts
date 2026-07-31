@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   collection,
   doc,
@@ -28,27 +28,25 @@ export function useEventMembers(
     email?: string | null
     photoURL?: string | null
     isOwner?: boolean
-    /** From ?invite= in the URL */
     inviteFromUrl?: string | null
-    /** Current event.inviteToken */
     eventInviteToken?: string | null
-    /** Current event.blockedUids */
     blockedUids?: string[]
-    /** Called when join is refused */
-    onJoinDenied?: (reason: 'blocked' | 'invalid_invite') => void
   }
 ) {
   const [members, setMembers] = useState<EventMember[]>([])
   const [loading, setLoading] = useState(true)
   const [joinDenied, setJoinDenied] = useState<'blocked' | 'invalid_invite' | null>(null)
+  const membersReady = useRef(false)
 
   useEffect(() => {
     if (!eventId) {
       setMembers([])
       setLoading(false)
+      membersReady.current = false
       return
     }
 
+    membersReady.current = false
     const q = query(
       collection(db, 'events', eventId, 'members'),
       orderBy('joinedAt', 'asc')
@@ -60,10 +58,12 @@ export function useEventMembers(
         const list: EventMember[] = []
         snap.forEach((d) => list.push({ uid: d.id, ...d.data() } as EventMember))
         setMembers(list)
+        membersReady.current = true
         setLoading(false)
       },
       (err) => {
         console.error('members error', err)
+        membersReady.current = true
         setLoading(false)
       }
     )
@@ -71,29 +71,27 @@ export function useEventMembers(
     return () => unsub()
   }, [eventId])
 
-  // Auto-register (or refuse) current user
   useEffect(() => {
     if (!eventId || !options?.uid || !options.displayName) return
+    if (!membersReady.current && loading) return
 
     const uid = options.uid
     const blocked = options.blockedUids || []
 
     if (blocked.includes(uid)) {
       setJoinDenied('blocked')
-      options.onJoinDenied?.('blocked')
       return
     }
 
     const alreadyMember = members.some((m) => m.uid === uid)
     const isOwner = !!options.isOwner
 
-    // New joiners need a matching invite token when the event has one
     if (!alreadyMember && !isOwner) {
       const required = options.eventInviteToken
+      // Only enforce token once the event has one (and after members loaded)
       if (required) {
         if (!options.inviteFromUrl || options.inviteFromUrl !== required) {
           setJoinDenied('invalid_invite')
-          options.onJoinDenied?.('invalid_invite')
           return
         }
       }
@@ -115,6 +113,8 @@ export function useEventMembers(
     ).catch((err) => console.error('join member failed', err))
   }, [
     eventId,
+    loading,
+    members,
     options?.uid,
     options?.displayName,
     options?.email,
@@ -122,8 +122,7 @@ export function useEventMembers(
     options?.isOwner,
     options?.inviteFromUrl,
     options?.eventInviteToken,
-    options?.blockedUids,
-    members
+    options?.blockedUids
   ])
 
   const removeMember = useCallback(
@@ -151,7 +150,6 @@ export function useEventMembers(
       await Promise.all(updates)
       await deleteDoc(doc(db, 'events', eventId, 'members', member.uid))
 
-      // Block rejoin even with a valid invite link
       await updateDoc(doc(db, 'events', eventId), {
         blockedUids: arrayUnion(member.uid)
       })
