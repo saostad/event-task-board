@@ -3,9 +3,11 @@ import { Plus, Share2, Check, Settings, MapPin, Phone, Calendar } from 'lucide-r
 import { useEvent } from '../hooks/useEvent'
 import { TaskCard } from './TaskCard'
 import { AddTaskForm } from './AddTaskForm'
+import { EditTaskForm } from './EditTaskForm'
 import { NamePrompt } from './NamePrompt'
 import { AppFooter } from './AppFooter'
 import { cn } from '../lib/utils'
+import type { Task } from '../types'
 
 interface Props {
   eventId: string
@@ -44,6 +46,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
     loading,
     error,
     addTask,
+    updateTask,
     claimTask,
     unclaimTask,
     markDone,
@@ -52,6 +55,7 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
   } = useEvent(eventId)
 
   const [showAdd, setShowAdd] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showName, setShowName] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const [copied, setCopied] = useState(false)
@@ -243,10 +247,11 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
                 }
                 claimTask(id, displayName)
               }}
-              onUnclaim={(id) => unclaimTask(id, displayName)}
+              onUnclaim={(id, name) => unclaimTask(id, name || displayName)}
               onDone={markDone}
               onReopen={reopenTask}
               onDelete={deleteTask}
+              onEdit={setEditingTask}
             />
           ))
         )}
@@ -264,6 +269,14 @@ export function EventBoard({ eventId, displayName, onUpdateName, userUid }: Prop
       )}
 
       {showAdd && <AddTaskForm onAdd={addTask} onClose={() => setShowAdd(false)} />}
+
+      {editingTask && (
+        <EditTaskForm
+          task={editingTask}
+          onSave={(data) => updateTask(editingTask.id, data)}
+          onClose={() => setEditingTask(null)}
+        />
+      )}
 
       {(showName || !displayName) && (
         <NamePrompt
