@@ -3,7 +3,6 @@ import {
   auth,
   onAuthStateChanged,
   signInWithGoogle,
-  handleRedirectResult,
   signOut,
   getLocalDisplayName,
   setDisplayName,
@@ -19,22 +18,11 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
-    // Handle redirect result (mobile / popup blocked cases)
-    handleRedirectResult()
-      .then((u) => {
-        if (u && mounted) {
-          setUser(u)
-          if (u.displayName) setDisplayNameState(u.displayName)
-        }
-      })
-      .catch(console.error)
-
     const unsub = onAuthStateChanged(auth, (u) => {
       if (!mounted) return
       setUser(u)
       if (u?.displayName) {
         setDisplayNameState(u.displayName)
-        // Keep localStorage in sync
         localStorage.setItem('displayName', u.displayName)
       } else if (!u) {
         setDisplayNameState('')
@@ -56,12 +44,8 @@ export function useAuth() {
       if (u.displayName) setDisplayNameState(u.displayName)
       return u
     } catch (err: any) {
-      // Redirect case — page will reload, don't show error
-      if (err?.code === 'auth/popup-blocked' || err?.code === 'auth/popup-closed-by-user') {
-        return null
-      }
       setAuthError(err?.message || 'Google sign-in failed')
-      throw err
+      return null
     }
   }, [])
 
