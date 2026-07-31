@@ -145,6 +145,8 @@ export function useEvent(eventId: string | undefined) {
         capacity?: number
         location?: string | null
         phone?: string | null
+        attachments?: Attachment[]
+        newFiles?: File[]
       }
     ) => {
       if (!eventId) return
@@ -152,8 +154,27 @@ export function useEvent(eventId: string | undefined) {
       if (!task) return
 
       const capacity = Math.max(1, data.capacity || 1)
-      // If capacity shrinks below current claimants, keep claimants but status = claimed
       const status = statusFromClaims(task.claimedBy.length, capacity, task.status)
+
+      let attachments: Attachment[] = data.attachments ?? task.attachments ?? []
+
+      if (data.newFiles && data.newFiles.length > 0) {
+        const uploaded: Attachment[] = []
+        for (const file of data.newFiles) {
+          const path = `events/${eventId}/tasks/${taskId}/${Date.now()}_${file.name}`
+          const storageRef = ref(storage, path)
+          await uploadBytes(storageRef, file)
+          const url = await getDownloadURL(storageRef)
+          uploaded.push({
+            name: file.name,
+            url,
+            type: file.type || 'application/octet-stream',
+            size: file.size,
+            uploadedAt: Date.now()
+          })
+        }
+        attachments = [...attachments, ...uploaded].slice(0, 5)
+      }
 
       await updateDoc(doc(db, 'events', eventId, 'tasks', taskId), {
         title: data.title.trim(),
@@ -162,6 +183,7 @@ export function useEvent(eventId: string | undefined) {
         capacity,
         location: data.location?.trim() || null,
         phone: data.phone?.trim() || null,
+        attachments,
         status
       })
     },
@@ -196,7 +218,11 @@ export function useEvent(eventId: string | undefined) {
       const newClaimed = task.claimedBy.filter((n) => n !== name)
       await updateDoc(taskRef, {
         claimedBy: newClaimed,
-        status: statusFromClaims(newClaimed.length, task.capacity, task.status === 'done' ? undefined : task.status)
+        status: statusFromClaims(
+          newClaimed.length,
+          task.capacity,
+          task.status === 'done' ? undefined : task.status
+        )
       })
     },
     [eventId, tasks]
