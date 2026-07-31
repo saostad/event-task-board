@@ -27,15 +27,25 @@ function EventPage() {
               <CalendarHeart className="w-12 h-12 text-brand-400" />
             </div>
             <h1 className="text-2xl font-bold mb-2">Join this event</h1>
-            <p className="text-slate-400 mb-8">
+            <p className="text-slate-400 mb-6">
               Sign in with Google to view tasks and volunteer.
             </p>
 
             <GoogleSignInButton onClick={login} label="Sign in to join" />
 
             {authError && (
-              <p className="mt-4 text-sm text-red-400">{authError}</p>
+              <p className="mt-4 text-sm text-red-400 text-left">{authError}</p>
             )}
+
+            <div className="mt-6 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-left text-xs text-slate-400 leading-relaxed">
+              <p className="font-medium text-slate-300 mb-1">Having trouble signing in?</p>
+              <p>
+                If you opened this link inside WhatsApp, Messenger, or Instagram,
+                open it in <span className="text-white">Chrome</span> or{' '}
+                <span className="text-white">Safari</span> instead (menu → Open in
+                browser), then try again.
+              </p>
+            </div>
           </div>
         </div>
         <AppFooter />
