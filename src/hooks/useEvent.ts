@@ -20,6 +20,7 @@ import type {
   EventWritableFields,
   VoiceNote
 } from '../types'
+import { generateInviteToken } from '../lib/utils'
 
 function statusFromClaims(
   claimedCount: number,
@@ -332,6 +333,14 @@ export function useEvent(eventId: string | undefined) {
     [eventId]
   )
 
+  /** Invalidate old share links; returns the new token. */
+  const regenerateInviteToken = useCallback(async (): Promise<string> => {
+    if (!eventId) throw new Error('No event')
+    const token = generateInviteToken(16)
+    await updateDoc(doc(db, 'events', eventId), { inviteToken: token })
+    return token
+  }, [eventId])
+
   return {
     event,
     tasks,
@@ -344,7 +353,8 @@ export function useEvent(eventId: string | undefined) {
     markDone,
     reopenTask,
     deleteTask,
-    updateEvent
+    updateEvent,
+    regenerateInviteToken
   }
 }
 
@@ -365,7 +375,9 @@ export async function createEvent(
     eventDate: data.eventDate || null,
     createdAt: Date.now(),
     createdBy: ownerUid,
-    ownerName: ownerName.trim()
+    ownerName: ownerName.trim(),
+    inviteToken: generateInviteToken(16),
+    blockedUids: []
   })
   return eventRef.id
 }
