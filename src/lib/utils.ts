@@ -13,6 +13,24 @@ export function generateCode(length = 6): string {
   return result
 }
 
+/** Random token for share links (URL-safe). */
+export function generateInviteToken(length = 16): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789'
+  let result = ''
+  const arr = new Uint8Array(length)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(arr)
+    for (let i = 0; i < length; i++) {
+      result += chars[arr[i] % chars.length]
+    }
+    return result
+  }
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
 export function formatDeadline(iso: string | null): string {
   if (!iso) return 'No deadline'
   const d = new Date(iso)
@@ -30,9 +48,6 @@ export function isOverdue(iso: string | null): boolean {
   return new Date(iso) < new Date()
 }
 
-/**
- * Format a phone number as the user types (US-style).
- */
 export function formatPhoneInput(raw: string): string {
   const digits = raw.replace(/\D/g, '')
 
@@ -63,15 +78,9 @@ const IMAGE_TYPES = new Set([
 
 export function isImageFile(file: File): boolean {
   if (file.type && IMAGE_TYPES.has(file.type.toLowerCase())) return true
-  // Fallback by extension (some mobile browsers omit type)
   return /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name)
 }
 
-/**
- * Compress an image client-side to the given JPEG quality (default 0.3 = 30%).
- * Also downscales if wider/taller than maxEdge.
- * Non-images are returned unchanged.
- */
 export async function compressImageFile(
   file: File,
   quality = 0.3,
@@ -79,7 +88,6 @@ export async function compressImageFile(
 ): Promise<File> {
   if (!isImageFile(file)) return file
 
-  // HEIC often can't be decoded in canvas on all browsers — leave as-is
   if (/heic|heif/i.test(file.type) || /\.(heic|heif)$/i.test(file.name)) {
     return file
   }
@@ -118,12 +126,10 @@ export async function compressImageFile(
       lastModified: Date.now()
     })
   } catch {
-    // Decode failed — upload original
     return file
   }
 }
 
-/** Compress every image in a list; leave other files untouched. */
 export async function compressImagesInFiles(
   files: File[],
   quality = 0.3
