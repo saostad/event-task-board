@@ -20,6 +20,7 @@ import { AddTaskForm } from './AddTaskForm'
 import { EditTaskForm } from './EditTaskForm'
 import { NamePrompt } from './NamePrompt'
 import { ContributorsPanel } from './ContributorsPanel'
+import { NotificationPrompt } from './NotificationPrompt'
 import { AppFooter } from './AppFooter'
 import { cn } from '../lib/utils'
 import type { Task } from '../types'
@@ -119,7 +120,6 @@ export function EventBoard({
   const [regenBusy, setRegenBusy] = useState(false)
   const [lastToken, setLastToken] = useState<string | null>(null)
 
-  // Live task for detail (updates when Firestore changes)
   const viewingTask = viewingTaskId
     ? tasks.find((t) => t.id === viewingTaskId) || null
     : null
@@ -128,7 +128,6 @@ export function EventBoard({
     if (event?.inviteToken) setLastToken(event.inviteToken)
   }, [event?.inviteToken])
 
-  // If task was deleted while open, close detail
   useEffect(() => {
     if (viewingTaskId && !tasks.some((t) => t.id === viewingTaskId)) {
       setViewingTaskId(null)
@@ -341,6 +340,10 @@ export function EventBoard({
         </div>
       </header>
 
+      <div className="max-w-2xl mx-auto w-full pt-3">
+        <NotificationPrompt />
+      </div>
+
       <div className="max-w-2xl mx-auto px-4 py-3 overflow-x-auto w-full">
         <div className="flex gap-2">
           {(['all', 'open', 'claimed', 'done', 'mine'] as Filter[]).map((f) => (
@@ -443,7 +446,7 @@ export function EventBoard({
       )}
 
       {showInviteSettings && isOwner && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-700 shadow-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold flex items-center gap-2">
