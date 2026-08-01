@@ -56,9 +56,20 @@ async function saveTokenToFirestore(token: string) {
   )
 }
 
+export type NotificationStatus = 'unsupported' | 'missing-key' | 'denied' | 'default' | 'granted'
+
+/** Current permission / readiness status (safe to call anytime). */
+export function getNotificationStatus(): NotificationStatus {
+  if (!('Notification' in window)) return 'unsupported'
+  if (!VAPID_KEY) return 'missing-key'
+  if (Notification.permission === 'denied') return 'denied'
+  if (Notification.permission === 'granted') return 'granted'
+  return 'default'
+}
+
 /**
  * Request notification permission, obtain FCM token, and store it.
- * Safe to call multiple times.
+ * Must be called from a user gesture (button click) for best browser support.
  */
 export async function setupNotifications(): Promise<string | null> {
   if (!VAPID_KEY) {
@@ -71,7 +82,6 @@ export async function setupNotifications(): Promise<string | null> {
     return null
   }
 
-  // Already denied → do nothing (user must change it in browser settings)
   if (Notification.permission === 'denied') {
     console.info('[FCM] Notification permission previously denied')
     return null
@@ -91,7 +101,6 @@ export async function setupNotifications(): Promise<string | null> {
     const msg = await getMessagingInstance()
     if (!msg) return null
 
-    // Prefer the dedicated messaging SW if it exists, otherwise let Firebase handle it.
     let swRegistration: ServiceWorkerRegistration | undefined
     try {
       swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
@@ -158,12 +167,15 @@ export function listenForForegroundMessages(
 }
 
 /**
- * Convenience helper – call after the user is signed in.
+ * Start foreground listeners only (permission is requested via the UI button).
  */
 export function startNotificationListeners(
   onForegroundMessage?: (title: string, body: string) => void
 ) {
-  setupNotifications()
+  // Soft attempt if already granted (refresh token)
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    setupNotifications()
+  }
 
   if (onForegroundMessage) {
     return listenForForegroundMessages(({ title, body }) => {
