@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus,
@@ -23,6 +23,7 @@ import { ContributorsPanel } from './ContributorsPanel'
 import { NotificationPrompt } from './NotificationPrompt'
 import { AppFooter } from './AppFooter'
 import { cn } from '../lib/utils'
+import { showToast } from '../lib/toast'
 import type { Task } from '../types'
 
 interface Props {
@@ -120,19 +121,56 @@ export function EventBoard({
   const [regenBusy, setRegenBusy] = useState(false)
   const [lastToken, setLastToken] = useState<string | null>(null)
 
+  // Track known task IDs so we can toast only on newly arrived tasks
+  const knownTaskIdsRef = useRef<Set<string> | null>(null)
+  const eventTitleRef = useRef<string>('')
+
   const viewingTask = viewingTaskId
     ? tasks.find((t) => t.id === viewingTaskId) || null
     : null
 
   useEffect(() => {
     if (event?.inviteToken) setLastToken(event.inviteToken)
-  }, [event?.inviteToken])
+    if (event?.title) eventTitleRef.current = event.title
+  }, [event?.inviteToken, event?.title])
 
   useEffect(() => {
     if (viewingTaskId && !tasks.some((t) => t.id === viewingTaskId)) {
       setViewingTaskId(null)
     }
   }, [tasks, viewingTaskId])
+
+  // In-app notification when someone else adds a task (works while the page is open)
+  useEffect(() => {
+    if (loading) return
+
+    const currentIds = new Set(tasks.map((t) => t.id))
+
+    // First snapshot after load — just remember IDs, don't toast
+    if (knownTaskIdsRef.current === null) {
+      knownTaskIdsRef.current = currentIds
+      return
+    }
+
+    const prev = knownTaskIdsRef.current
+    const newTasks = tasks.filter(
+      (t) => !prev.has(t.id) && t.createdBy !== userUid
+    )
+
+    for (const task of newTasks) {
+      const title = eventTitleRef.current
+        ? `New task in “${eventTitleRef.current}”`
+        : 'New task'
+      showToast(title, task.title)
+    }
+
+    knownTaskIdsRef.current = currentIds
+  }, [tasks, loading, userUid])
+
+  // Reset known IDs when switching events
+  useEffect(() => {
+    knownTaskIdsRef.current = null
+  }, [eventId])
 
   const shareUrl = useMemo(() => {
     if (typeof window === 'undefined') return ''
