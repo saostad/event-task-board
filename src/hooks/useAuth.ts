@@ -9,6 +9,7 @@ import {
   type User
 } from '../lib/firebase'
 import { startNotificationListeners } from '../lib/notifications'
+import { showToast } from '../lib/toast'
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
@@ -31,15 +32,11 @@ export function useAuth() {
       }
       setLoading(false)
 
-      // Start (or restart) push notification setup when a user is signed in
       if (u) {
         stopNotifications?.()
         stopNotifications = startNotificationListeners((title, body) => {
-          // Simple foreground feedback – can be replaced with a nicer toast later
-          if (document.visibilityState === 'visible') {
-            // Browser may still show a system notification depending on the OS
-            console.info('[FCM foreground]', title, body)
-          }
+          // Foreground FCM → in-app toast
+          showToast(title, body)
         })
       } else {
         stopNotifications?.()
