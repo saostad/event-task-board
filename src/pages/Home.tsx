@@ -127,7 +127,7 @@ export function Home() {
             <div className="inline-flex p-4 rounded-3xl bg-brand-500/10 mb-6">
               <CalendarHeart className="w-12 h-12 text-brand-400" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">Event Task Board</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Taskly</h1>
             <p className="mt-2 text-slate-400 mb-8">
               Create events, share a link, and let people volunteer for tasks.
             </p>
@@ -150,7 +150,7 @@ export function Home() {
               <CalendarHeart className="w-4 h-4 text-brand-400" />
             </div>
             <div className="min-w-0">
-              <div className="font-semibold text-sm leading-tight truncate">Event Task Board</div>
+              <div className="font-semibold text-sm leading-tight truncate">Taskly</div>
               <div className="text-[11px] text-slate-400 truncate">
                 {displayName || user.email}
               </div>
@@ -328,7 +328,7 @@ export function Home() {
       <AppFooter />
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md bg-slate-900 rounded-2xl p-5 border border-slate-700 shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Edit event</h2>
@@ -352,7 +352,7 @@ export function Home() {
       )}
 
       {deleting && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md bg-slate-900 rounded-2xl p-5 border border-slate-700 shadow-xl">
             <h2 className="text-lg font-semibold mb-2">Delete event?</h2>
             <p className="text-sm text-slate-400 mb-5">
