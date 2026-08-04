@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Event Task Board',
-        short_name: 'TaskBoard',
-        description: 'Coordinate event tasks with volunteer claiming. Perfect for weddings and group events.',
+        name: 'Taskly',
+        short_name: 'Taskly',
+        description: 'Create events, share a link, and let people volunteer for tasks.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
