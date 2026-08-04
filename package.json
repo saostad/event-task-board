@@ -1,5 +1,5 @@
 {
-  "name": "event-task-board",
+  "name": "taskly",
   "private": true,
   "version": "1.0.0",
   "type": "module",
