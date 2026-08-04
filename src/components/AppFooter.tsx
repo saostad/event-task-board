@@ -22,7 +22,7 @@ export function AppFooter() {
 
   return (
     <footer className="text-center text-xs text-slate-600 py-4 px-4">
-      <div>Event Task Board</div>
+      <div>Taskly</div>
       <div className="mt-0.5">
         Build #{buildNumber}
         {buildTime ? ` · ${buildTime}` : ''}
