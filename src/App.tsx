@@ -4,6 +4,7 @@ import { EventBoard } from './components/EventBoard'
 import { useAuth } from './hooks/useAuth'
 import { GoogleSignInButton } from './components/GoogleSignInButton'
 import { AppFooter } from './components/AppFooter'
+import { InAppToast } from './components/InAppToast'
 import { CalendarHeart } from 'lucide-react'
 
 function EventPage() {
@@ -68,6 +69,7 @@ function EventPage() {
 export default function App() {
   return (
     <BrowserRouter>
+      <InAppToast />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/e/:eventId" element={<EventPage />} />
